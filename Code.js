@@ -70,14 +70,17 @@ function refreshCapaciteit() {
   const alleEmails = [...new Set(teamNamen.flatMap(t => teams[t].map(l => l.email)))];
 
   // ---- ÉÉN API call per persoon voor de volledige periode ----
-  // Resultaat: { "email": { "Mon Jun 23 2026": urenAfwezig, ... }, ... }
   const periodeStart = weken[0].start;
   const periodeEinde = new Date(weken[weken.length - 1].einde);
   periodeEinde.setHours(23, 59, 59, 999);
 
   const afwezigCache = {};
+  const kalenderFouten = {}; // { email: foutmelding }
+
   alleEmails.forEach(email => {
-    afwezigCache[email] = haalAfwezighedenOp(email, periodeStart, periodeEinde);
+    const { dagData, fout } = haalAfwezighedenOp(email, periodeStart, periodeEinde);
+    afwezigCache[email] = dagData;
+    if (fout) kalenderFouten[email] = fout;
   });
 
   // ---- Capaciteitssheet klaarzetten ----
@@ -131,6 +134,7 @@ function refreshCapaciteit() {
     // Teamleden — berekening vanuit cache, geen extra API calls
     leden.forEach(lid => {
       const dagCache = afwezigCache[lid.email] || {};
+      const heeftFout = !!kalenderFouten[lid.email];
       const rowData = [lid.naam];
       const afwezigPerWeek = [];
 
@@ -138,36 +142,49 @@ function refreshCapaciteit() {
         const afwezig = berekenAfwezigVanuitCache(dagCache, week.start, week.einde);
         afwezigPerWeek.push(afwezig);
         const beschikbaar = Math.round((5 - afwezig) * 4) / 4;
-        const label = Number.isInteger(beschikbaar)
-          ? beschikbaar
-          : beschikbaar.toFixed(2).replace('.', ',');
-        rowData.push(label + " / 5 dagen");
+        if (heeftFout) {
+          rowData.push("⚠️ geen toegang");
+        } else {
+          const label = Number.isInteger(beschikbaar)
+            ? beschikbaar
+            : beschikbaar.toFixed(2).replace('.', ',');
+          rowData.push(label + " / 5 dagen");
+        }
       });
 
       sheet.getRange(rij, 1, 1, aantalKolommen).setValues([rowData]);
       sheet.getRange(rij, 2, 1, WEKEN_VOORUIT).setHorizontalAlignment("center");
 
-      afwezigPerWeek.forEach((afwezig, idx) => {
-        const beschikbaar = Math.round((5 - afwezig) * 4) / 4;
-        const cel = sheet.getRange(rij, 2 + idx);
-        if (beschikbaar === 5) cel.setBackground("#e6f4ea");
-        else if (beschikbaar >= 3) cel.setBackground("#fef9c3");
-        else cel.setBackground("#fce8e6");
-      });
+      if (heeftFout) {
+        // Oranje achtergrond voor rijen met fouten
+        sheet.getRange(rij, 1, 1, aantalKolommen).setBackground("#fff3e0").setFontColor("#e65100");
+      } else {
+        afwezigPerWeek.forEach((afwezig, idx) => {
+          const beschikbaar = Math.round((5 - afwezig) * 4) / 4;
+          const cel = sheet.getRange(rij, 2 + idx);
+          if (beschikbaar === 5) cel.setBackground("#e6f4ea");
+          else if (beschikbaar >= 3) cel.setBackground("#fef9c3");
+          else cel.setBackground("#fce8e6");
+        });
+      }
 
       rij++;
     });
 
-    // Totaalrij — ook vanuit cache
+    // Totaalrij — ook vanuit cache, fouten tellen als 0% beschikbaar
     const totaalRij = [`${teamNaam} totaal (%)`];
     weken.forEach(week => {
       let totaalBeschikbaar = 0;
       leden.forEach(lid => {
+        if (kalenderFouten[lid.email]) return; // niet meetellen bij fout
         const dagCache = afwezigCache[lid.email] || {};
         const afwezig = berekenAfwezigVanuitCache(dagCache, week.start, week.einde);
         totaalBeschikbaar += (5 - afwezig);
       });
-      const pct = Math.round((totaalBeschikbaar / (5 * leden.length)) * 100);
+      const geldigeLeden = leden.filter(l => !kalenderFouten[l.email]).length;
+      const pct = geldigeLeden > 0
+        ? Math.round((totaalBeschikbaar / (5 * geldigeLeden)) * 100)
+        : 0;
       totaalRij.push(pct + "%");
     });
 
@@ -181,14 +198,41 @@ function refreshCapaciteit() {
     rij++;
   });
 
-  SpreadsheetApp.getUi().alert("✅ Capaciteit bijgewerkt!");
+  // ---- Fouten samenvatten onderaan ----
+  const foutenLijst = Object.entries(kalenderFouten);
+  if (foutenLijst.length > 0) {
+    rij++;
+    sheet.getRange(rij, 1, 1, aantalKolommen).merge();
+    sheet.getRange(rij, 1)
+      .setValue("⚠️ Kalender toegangsfouten — controleer de rechten voor onderstaande accounts")
+      .setFontWeight("bold").setBackground("#fff3e0").setFontColor("#e65100");
+    rij++;
+
+    foutenLijst.forEach(([email, fout]) => {
+      sheet.getRange(rij, 1, 1, aantalKolommen).merge();
+      sheet.getRange(rij, 1)
+        .setValue(`${email}: ${fout}`)
+        .setBackground("#fff8f0").setFontColor("#bf360c");
+      rij++;
+    });
+
+    // Pop-up waarschuwing
+    SpreadsheetApp.getUi().alert(
+      `⚠️ Capaciteit bijgewerkt met ${foutenLijst.length} fout(en).\n\n` +
+      `Geen toegang tot kalender van:\n` +
+      foutenLijst.map(([email]) => `• ${email}`).join("\n") +
+      `\n\nControleer of de kalenders gedeeld zijn met het account waarmee dit script draait.`
+    );
+  } else {
+    SpreadsheetApp.getUi().alert("✅ Capaciteit bijgewerkt!");
+  }
 }
 
 // ============================================================
-// ÉÉN API call per persoon — geeft map van datum → afwezige uren
+// ÉÉN API call per persoon — geeft data + eventuele fout terug
 // ============================================================
 function haalAfwezighedenOp(email, periodeStart, periodeEinde) {
-  const afwezigUrenPerDag = {};
+  const dagData = {};
 
   try {
     const response = Calendar.Events.list(email, {
@@ -211,14 +255,14 @@ function haalAfwezighedenOp(email, periodeStart, periodeEinde) {
         if (dag !== 0 && dag !== 6) {
           const key = cursor.toDateString();
           if (isAllDay) {
-            afwezigUrenPerDag[key] = WERKUREN_PER_DAG;
+            dagData[key] = WERKUREN_PER_DAG;
           } else {
             const dagStart = new Date(cursor); dagStart.setHours(0, 0, 0, 0);
             const dagEinde = new Date(cursor); dagEinde.setHours(23, 59, 59, 999);
             const overlapMs = Math.min(evEinde, dagEinde) - Math.max(evStart, dagStart);
             if (overlapMs > 0) {
               const uren = overlapMs / (1000 * 60 * 60);
-              afwezigUrenPerDag[key] = Math.min(WERKUREN_PER_DAG, (afwezigUrenPerDag[key] || 0) + uren);
+              dagData[key] = Math.min(WERKUREN_PER_DAG, (dagData[key] || 0) + uren);
             }
           }
         }
@@ -226,11 +270,12 @@ function haalAfwezighedenOp(email, periodeStart, periodeEinde) {
       }
     });
 
+    return { dagData, fout: null };
+
   } catch (e) {
     Logger.log("Fout voor " + email + ": " + e.message);
+    return { dagData, fout: e.message };
   }
-
-  return afwezigUrenPerDag;
 }
 
 // Berekening vanuit cache — geen API call
