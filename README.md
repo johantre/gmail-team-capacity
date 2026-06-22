@@ -1,7 +1,5 @@
 # gmail-team-capacity
 
-[![Deploy to Apps Script](https://github.com/johantre/gmail-team-capacity/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/johantre/gmail-team-capacity/actions/workflows/deploy.yml)
-
 Visualize team capacity for the upcoming 4 weeks directly in Google Sheets, based on **Out of Office** events in Google Calendar.
 
 No external tools, no servers — just Google Apps Script connected to the Google Calendar API.
@@ -99,6 +97,11 @@ Google Apps Script
        ▼
 Google Sheet
 ```
+
+## Deploy Status
+
+[![Deploy to Apps Script](https://github.com/johantre/gmail-team-capacity/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/johantre/gmail-team-capacity/actions/workflows/deploy.yml)
+
 
 ## License
 
