@@ -257,8 +257,8 @@ function haalAfwezighedenOp(email, periodeStart, periodeEinde) {
           if (isAllDay) {
             dagData[key] = WERKUREN_PER_DAG;
           } else {
-            const dagStart = new Date(cursor); dagStart.setHours(0, 0, 0, 0);
-            const dagEinde = new Date(cursor); dagEinde.setHours(23, 59, 59, 999);
+            const dagStart = new Date(cursor); dagStart.setHours(9, 0, 0, 0);
+            const dagEinde = new Date(cursor); dagEinde.setHours(17, 0, 0, 0);
             const overlapMs = Math.min(evEinde, dagEinde) - Math.max(evStart, dagStart);
             if (overlapMs > 0) {
               const uren = overlapMs / (1000 * 60 * 60);
