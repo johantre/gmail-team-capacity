@@ -93,12 +93,13 @@ function refreshCapaciteit() {
 
   const sprints = leesSprintConfig(teamsSheet);
 
-  // Calculate weeks
+  // Calculate weeks — start from the current sprint's Monday so full sprints are shown
   const vandaag = new Date();
-  const maandag = getMaandagVanWeek(vandaag);
+  const huidigeSprint = sprints.find(s => vandaag >= s.start && vandaag < s.einde);
+  const startpunt = huidigeSprint ? getMaandagVanWeek(huidigeSprint.start) : getMaandagVanWeek(vandaag);
   const weken = [];
   for (let i = 0; i < WEKEN_VOORUIT; i++) {
-    const start = new Date(maandag); start.setDate(maandag.getDate() + i * 7);
+    const start = new Date(startpunt); start.setDate(startpunt.getDate() + i * 7);
     const einde = new Date(start); einde.setDate(start.getDate() + 4);
     weken.push({ start, einde });
   }
