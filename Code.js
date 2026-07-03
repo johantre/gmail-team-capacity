@@ -119,8 +119,15 @@ function berekenAfwezigInWeek(dagCache, weekStart, weekEinde, sprintStart, sprin
 
 // ============================================================
 // MAIN FUNCTION
+// refreshCapaciteit() shows the loading dialog; the dialog calls doRefresh()
 // ============================================================
 function refreshCapaciteit() {
+  const html = HtmlService.createHtmlOutputFromFile('Loading')
+    .setWidth(280).setHeight(280);
+  SpreadsheetApp.getUi().showModalDialog(html, ' ');
+}
+
+function doRefresh() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   const teamsSheet = ss.getSheetByName(SHEET_TEAMS);
@@ -322,14 +329,12 @@ function refreshCapaciteit() {
         .setBackground("#fff8f0").setFontColor("#bf360c");
       rij++;
     });
-    SpreadsheetApp.getUi().alert(
-      `⚠️ Capacity updated with ${foutenLijst.length} error(s).\n\n` +
-      `No access to calendar of:\n` +
-      foutenLijst.map(([email]) => `• ${email}`).join("\n") +
-      `\n\nCheck if the calendars are shared with the account running this script.`
-    );
-  } else {
-    SpreadsheetApp.getUi().alert("✅ Capacity updated!");
+    // Return error summary so the dialog can display it
+    if (foutenLijst.length > 0) {
+      throw new Error(
+        `No calendar access for: ${foutenLijst.map(([e]) => e).join(', ')}`
+      );
+    }
   }
 }
 

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #ffffff;
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    .logo-wrap {
+      animation: pulse 2s ease-in-out infinite;
+      transform-origin: center;
+    }
+
+    @keyframes pulse {
+      0%,100% { transform: scale(1);    opacity: 1;    }
+      50%      { transform: scale(1.1); opacity: 0.65; }
+    }
+
+    .logo-wrap svg {
+      width: 90px;
+      height: 90px;
+    }
+
+    .label {
+      margin-top: 24px;
+      font-size: 13px;
+      color: #3C3C3B;
+      letter-spacing: 0.03em;
+    }
+
+    .done .logo-wrap {
+      animation: shrink 0.4s ease-in forwards;
+    }
+
+    @keyframes shrink {
+      to { transform: scale(0.5); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="logo-wrap">
+    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 194.67 213.24">
+      <defs>
+        <linearGradient id="g" x1="64.8" y1="106.62" x2="129.81" y2="106.62" gradientUnits="userSpaceOnUse">
+          <stop offset="0"  stop-color="#447fb4"/>
+          <stop offset="1"  stop-color="#32b5ae"/>
+        </linearGradient>
+      </defs>
+      <path fill="url(#g)" stroke-width="0"
+        d="M97.31,148.23c-17.92,0-32.51-14.58-32.51-32.5s14.58-32.51,32.51-32.51,32.51,14.58,32.51,32.51-14.58,32.5-32.51,32.5ZM97.31,99.88c-8.74,0-15.84,7.11-15.84,15.84s7.1,15.84,15.84,15.84,15.84-7.11,15.84-15.84-7.1-15.84-15.84-15.84ZM113.3,65.01c-4.75,0-8.6,3.85-8.6,8.6s3.85,8.6,8.6,8.6,8.6-3.85,8.6-8.6-3.85-8.6-8.6-8.6Z"/>
+    </svg>
+  </div>
+
+  <p class="label">Loading capacity data…</p>
+
+  <script>
+    google.script.run
+      .withSuccessHandler(function() {
+        document.body.classList.add('done');
+        setTimeout(function() { google.script.host.close(); }, 420);
+      })
+      .withFailureHandler(function(err) {
+        document.querySelector('.label').textContent = '⚠️ ' + err.message;
+      })
+      .doRefresh();
+  </script>
+
+</body>
+</html>
