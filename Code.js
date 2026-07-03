@@ -142,7 +142,7 @@ function refreshCapaciteit() {
   sheet.clearContents();
   sheet.clearFormats();
 
-  const aantalKolommen = 1 + WEKEN_VOORUIT;
+  const aantalKolommen = 1 + weekKolommen.length;
   sheet.setColumnWidth(1, 220);
   for (let k = 2; k <= aantalKolommen; k++) sheet.setColumnWidth(k, 140);
 
