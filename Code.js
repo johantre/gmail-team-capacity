@@ -127,8 +127,9 @@ function refreshCapaciteit() {
   SpreadsheetApp.getUi().showSidebar(html);
 }
 
-function doRefresh() {
+function doRefresh(vanSidebar) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!vanSidebar) ss.toast('Loading capacity data…', '🗓️ Team Capacity', -1);
 
   const teamsSheet = ss.getSheetByName(SHEET_TEAMS);
   if (!teamsSheet) { SpreadsheetApp.getUi().alert('❌ Tab "Teams" not found.'); return; }
@@ -329,10 +330,9 @@ function doRefresh() {
         .setBackground("#fff8f0").setFontColor("#bf360c");
       rij++;
     });
+    if (!vanSidebar) ss.toast('✅ Capacity updated!', '🗓️ Team Capacity', 4);
     if (foutenLijst.length > 0) {
-      throw new Error(
-        `No calendar access for: ${foutenLijst.map(([e]) => e).join(', ')}`
-      );
+      throw new Error(`No calendar access for: ${foutenLijst.map(([e]) => e).join(', ')}`);
     }
   }
 }

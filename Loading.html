@@ -72,7 +72,7 @@
       .withFailureHandler(function(err) {
         document.querySelector('.label').textContent = '⚠️ ' + err.message;
       })
-      .doRefresh();
+      .doRefresh(true);
   </script>
 
 </body>
