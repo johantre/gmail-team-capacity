@@ -122,14 +122,12 @@ function berekenAfwezigInWeek(dagCache, weekStart, weekEinde, sprintStart, sprin
 // refreshCapaciteit() shows the loading dialog; the dialog calls doRefresh()
 // ============================================================
 function refreshCapaciteit() {
-  const html = HtmlService.createHtmlOutputFromFile('Loading')
-    .setTitle('Team Capacity');
-  SpreadsheetApp.getUi().showSidebar(html);
+  doRefresh();
 }
 
-function doRefresh(vanSidebar) {
+function doRefresh() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!vanSidebar) ss.toast('Loading capacity data…', '🗓️ Team Capacity', -1);
+  ss.toast('Loading capacity data…', '🗓️ Team Capacity', -1);
 
   const teamsSheet = ss.getSheetByName(SHEET_TEAMS);
   if (!teamsSheet) { SpreadsheetApp.getUi().alert('❌ Tab "Teams" not found.'); return; }
@@ -330,9 +328,9 @@ function doRefresh(vanSidebar) {
         .setBackground("#fff8f0").setFontColor("#bf360c");
       rij++;
     });
-    if (!vanSidebar) ss.toast('✅ Capacity updated!', '🗓️ Team Capacity', 4);
+    ss.toast('✅ Capacity updated!', '🗓️ Team Capacity', 4);
     if (foutenLijst.length > 0) {
-      throw new Error(`No calendar access for: ${foutenLijst.map(([e]) => e).join(', ')}`);
+      Logger.log(`Calendar access errors: ${foutenLijst.map(([e]) => e).join(', ')}`);
     }
   }
 }
