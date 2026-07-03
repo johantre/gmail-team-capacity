@@ -390,6 +390,22 @@ function onOpen() {
     .addToUi();
 }
 
+// Run this ONCE manually from the Apps Script editor to install the on-open trigger.
+// Simple onOpen() cannot make external API calls — an installable trigger can.
+function installeerTrigger() {
+  // Remove existing on-open triggers to avoid duplicates
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'doRefresh' && t.getEventType() === ScriptApp.EventType.ON_OPEN)
+    .forEach(t => ScriptApp.deleteTrigger(t));
+
+  ScriptApp.newTrigger('doRefresh')
+    .forSpreadsheet(SpreadsheetApp.getActive())
+    .onOpen()
+    .create();
+
+  SpreadsheetApp.getUi().alert('✅ Trigger installed — doRefresh() will run automatically on open.');
+}
+
 // ============================================================
 // HELPERS
 // ============================================================
