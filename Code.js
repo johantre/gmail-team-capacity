@@ -192,7 +192,7 @@ function refreshCapaciteit() {
         const kolBreedte = groep.weken.length;
         const cel = sheet.getRange(rij, kolStart, 1, kolBreedte);
         if (kolBreedte > 1) cel.merge();
-        cel.setValue(groep.sprint ? groep.sprint.naam : "")
+        cel.setValue(groep.sprint ? groep.sprint.naam + ` (${formatDatumKort(groep.sprint.start)} – ${formatDatumKort(groep.sprint.einde)})` : "")
           .setFontWeight("bold").setFontSize(10)
           .setBackground("#e8f0fe").setHorizontalAlignment("center");
       });
@@ -200,10 +200,10 @@ function refreshCapaciteit() {
       rij++;
     }
 
-    // Week headers (not bold)
+    // Week headers (not bold, no week numbers)
     const headers = ["Team member"];
     weekKolommen.forEach(wk => {
-      headers.push(`Week ${getWeeknummer(wk.week.start)}\n${formatDatumKort(wk.week.start)} – ${formatDatumKort(wk.week.einde)}`);
+      headers.push(`${formatDatumKort(wk.week.start)} – ${formatDatumKort(wk.week.einde)}`);
     });
     sheet.getRange(rij, 1, 1, aantalKolommen).setValues([headers])
       .setFontWeight("normal").setBackground("#e8f0fe")
@@ -248,9 +248,9 @@ function refreshCapaciteit() {
       rij++;
     });
 
-    // Total % row (per week column)
-    const totaalRij = [`${teamNaam} total (%)`];
+    // Calculate man-days per week (needed for sprint totals)
     const totaalBeschikbaarPerWeek = [];
+    const geldigeLeden = leden.filter(l => !kalenderFouten[l.email]).length;
     weekKolommen.forEach(wk => {
       let totaal = 0;
       leden.forEach(lid => {
@@ -260,27 +260,18 @@ function refreshCapaciteit() {
         totaal += Math.max(0, 5 - afwezig + wk.aanpassing);
       });
       totaalBeschikbaarPerWeek.push(totaal);
-      const geldigeLeden = leden.filter(l => !kalenderFouten[l.email]).length;
-      const pct = geldigeLeden > 0 ? Math.round((totaal / (5 * geldigeLeden)) * 100) : 0;
-      totaalRij.push(pct + "%");
     });
-    sheet.getRange(rij, 1, 1, aantalKolommen).setValues([totaalRij])
-      .setFontWeight("bold").setBackground("#f1f3f4");
-    sheet.getRange(rij, 2, 1, WEKEN_VOORUIT).setHorizontalAlignment("center");
-    rij++;
 
-    // Man-days row: label not bold, merged sprint cells bold
+    // MD / Sprint (%) row — label bold, merged sprint cells bold
     if (sprints.length > 0) {
-      sheet.getRange(rij, 1).setValue("Man-days / sprint")
-        .setFontWeight("normal").setBackground("#e8f0fe");
-      const geldigeLeden = leden.filter(l => !kalenderFouten[l.email]).length;
+      sheet.getRange(rij, 1).setValue("MD / Sprint (%)")
+        .setFontWeight("bold").setBackground("#e8f0fe");
       sprintGroepen.forEach(groep => {
         const kolStart = groep.startKolIdx + 2;
         const kolBreedte = groep.weken.length;
         let sprintMandagen = 0;
         groep.weken.forEach(wk => {
-          const wkIdx = weekKolommen.indexOf(wk);
-          sprintMandagen += totaalBeschikbaarPerWeek[wkIdx] || 0;
+          sprintMandagen += totaalBeschikbaarPerWeek[weekKolommen.indexOf(wk)] || 0;
         });
         const maxMandagen = 5 * geldigeLeden * groep.weken.length;
         const pct = maxMandagen > 0 ? Math.round((sprintMandagen / maxMandagen) * 100) : 0;
@@ -289,7 +280,7 @@ function refreshCapaciteit() {
           : sprintMandagen.toFixed(1).replace('.', ',');
         const cel = sheet.getRange(rij, kolStart, 1, kolBreedte);
         if (kolBreedte > 1) cel.merge();
-        cel.setValue(`${mdLabel} man-days (${pct}%)`)
+        cel.setValue(`${mdLabel} MD (${pct}%)`)
           .setFontWeight("bold").setBackground("#e8f0fe")
           .setHorizontalAlignment("center");
       });
