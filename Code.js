@@ -124,8 +124,8 @@ function refreshCapaciteit() {
 
   // ONE API call per person for the full period
   const alleEmails = [...new Set(teamNamen.flatMap(t => teams[t].map(l => l.email)))];
-  const periodeStart = weken[0].start;
-  const periodeEinde = new Date(weken[weken.length - 1].einde);
+  const periodeStart = weekKolommen[0].week.start;
+  const periodeEinde = new Date(weekKolommen[weekKolommen.length - 1].week.einde);
   periodeEinde.setHours(23, 59, 59, 999);
 
   const afwezigCache = {};
