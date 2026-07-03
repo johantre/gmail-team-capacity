@@ -18,11 +18,18 @@ const WERKUREN_PER_DAG = 8;
 const SHEET_TEAMS = "Teams";
 const SHEET_CAPACITEIT = "Capacity";
 
+// Robaws brand colors
+const BLAUW      = "#3E7CBF";
+const TURQUOISE  = "#27B4AF";
+const GRIJS      = "#3C3C3B";
+const BLAUW_LICHT     = "#d6e8f5";
+const TURQUOISE_LICHT = "#d0edec";
+
 const TEAM_KLEUREN = {
-  "Team A": "#1a73e8",
-  "Team B": "#188038",
-  "Team C": "#e37400",
-  "Team D": "#a142f4",
+  "Team A": BLAUW,
+  "Team B": TURQUOISE,
+  "Team C": "#2e6da4", // darker blue
+  "Team D": "#1e9490", // darker turquoise
 };
 
 const MAAND_MAP = {
@@ -182,8 +189,8 @@ function refreshCapaciteit() {
   sheet.getRange(1, 1, 1, aantalKolommen).merge();
   sheet.getRange(1, 1)
     .setValue("🗓️ Team Capacity — updated on " + formatDatum(vandaag))
-    .setFontSize(13).setFontWeight("bold")
-    .setBackground("#202124").setFontColor("#ffffff")
+    .setFontFamily("Montserrat").setFontSize(13).setFontWeight("bold")
+    .setBackground(GRIJS).setFontColor("#ffffff")
     .setHorizontalAlignment("center");
   sheet.setRowHeight(1, 36);
 
@@ -196,14 +203,14 @@ function refreshCapaciteit() {
     // Team title
     sheet.getRange(rij, 1, 1, aantalKolommen).merge();
     sheet.getRange(rij, 1).setValue(teamNaam)
-      .setFontSize(11).setFontWeight("bold")
+      .setFontFamily("Montserrat").setFontSize(11).setFontWeight("bold")
       .setBackground(teamKleur).setFontColor("#ffffff")
       .setHorizontalAlignment("left");
     sheet.setRowHeight(rij, 28);
     rij++;
 
     // Sprint header row — merged over each sprint's columns
-    sheet.getRange(rij, 1).setValue("").setBackground("#e8f0fe");
+    sheet.getRange(rij, 1).setValue("").setBackground(BLAUW_LICHT);
     sprintGroepen.forEach(groep => {
       const kolStart = groep.startKolIdx + 2;
       const kolBreedte = groep.weken.length;
@@ -211,8 +218,8 @@ function refreshCapaciteit() {
       if (kolBreedte > 1) cel.merge();
       const sprintLabel = `${groep.sprint.naam} (${formatDatumKort(groep.sprint.start)} – ${formatDatumKort(groep.sprint.einde)})`;
       cel.setValue(sprintLabel)
-        .setFontWeight("bold").setFontSize(10)
-        .setBackground("#e8f0fe").setHorizontalAlignment("center");
+        .setFontFamily("Montserrat").setFontWeight("bold").setFontSize(10)
+        .setBackground(BLAUW_LICHT).setFontColor(GRIJS).setHorizontalAlignment("center");
     });
     sheet.setRowHeight(rij, 22);
     rij++;
@@ -220,10 +227,11 @@ function refreshCapaciteit() {
     // Week headers — date range + working days count
     const headers = ["Team member"];
     weekKolommen.forEach(wk => {
-      headers.push(`${formatDatumKort(wk.week.start)} – ${formatDatumKort(wk.week.einde)}\n(${wk.werkdagen}d)`);
+      headers.push(`${formatDatumKort(wk.week.start)} – ${formatDatumKort(wk.week.einde)}\n(${wk.werkdagen})`);
     });
     sheet.getRange(rij, 1, 1, aantalKolommen).setValues([headers])
-      .setFontWeight("normal").setBackground("#e8f0fe")
+      .setFontFamily("Montserrat").setFontWeight("normal")
+      .setBackground(BLAUW_LICHT).setFontColor(GRIJS)
       .setHorizontalAlignment("center").setWrap(true);
     sheet.getRange(rij, 1).setFontWeight("bold");
     sheet.setRowHeight(rij, 44);
@@ -244,11 +252,11 @@ function refreshCapaciteit() {
           rowData.push("⚠️ no access");
         } else {
           const label = Number.isInteger(beschikbaar) ? beschikbaar : beschikbaar.toFixed(2).replace('.', ',');
-          rowData.push(`${label} / ${wk.werkdagen} d`);
+          rowData.push(`${label} / ${wk.werkdagen}`);
         }
       });
 
-      sheet.getRange(rij, 1, 1, aantalKolommen).setValues([rowData]);
+      sheet.getRange(rij, 1, 1, aantalKolommen).setValues([rowData]).setFontFamily("Montserrat");
       sheet.getRange(rij, 2, 1, weekKolommen.length).setHorizontalAlignment("center");
 
       if (heeftFout) {
@@ -268,7 +276,8 @@ function refreshCapaciteit() {
     // MD / Sprint (%) row — merged per sprint
     const geldigeLeden = leden.filter(l => !kalenderFouten[l.email]).length;
     sheet.getRange(rij, 1).setValue("MD / Sprint (%)")
-      .setFontWeight("bold").setBackground("#e8f0fe");
+      .setFontFamily("Montserrat").setFontWeight("bold")
+      .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS);
     sprintGroepen.forEach(groep => {
       const kolStart = groep.startKolIdx + 2;
       const kolBreedte = groep.weken.length;
@@ -287,7 +296,8 @@ function refreshCapaciteit() {
       const cel = sheet.getRange(rij, kolStart, 1, kolBreedte);
       if (kolBreedte > 1) cel.merge();
       cel.setValue(`${mdLabel} MD (${pct}%)`)
-        .setFontWeight("bold").setBackground("#e8f0fe")
+        .setFontFamily("Montserrat").setFontWeight("bold")
+        .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS)
         .setHorizontalAlignment("center");
     });
     rij++;
