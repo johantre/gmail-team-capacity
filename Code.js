@@ -54,6 +54,23 @@ function leesSprintConfig(teamsSheet) {
     const einde = new Date(eindeJaar, em, parseInt(eindeDag)); einde.setHours(0,0,0,0);
     sprints.push({ nr: parseInt(nr), naam: `Sprint ${nr}`, start, einde });
   }
+
+  // Derive sprint duration from the examples and auto-generate future sprints
+  if (sprints.length >= 2) {
+    sprints.sort((a, b) => a.nr - b.nr);
+    const duurMs = sprints[1].start - sprints[0].start; // duration in ms
+    const vandaag = new Date();
+    let laatste = sprints[sprints.length - 1];
+    while (laatste.einde <= vandaag || sprints.length < sprints[0].nr + 10) {
+      const start = new Date(laatste.einde);
+      const einde = new Date(start.getTime() + duurMs);
+      const nr = laatste.nr + 1;
+      laatste = { nr, naam: `Sprint ${nr}`, start, einde };
+      sprints.push(laatste);
+      if (sprints.length > 50) break; // safety cap
+    }
+  }
+
   return sprints;
 }
 
