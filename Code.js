@@ -10,11 +10,10 @@
 //
 // Sprint naming signature is in column H (index 7).
 // Format: Sprint {nr} ({day} {month} – {day} {month})
-// The end date of sprint N = start date of sprint N+1 (shared boundary day).
-// First week of sprint: -0.5 day (planning). Last week of sprint: +0.5 day (boundary overlap).
+// Convention: first day of sprint counts, last (overlapping) day does NOT count.
+// Sprints span 3 calendar weeks (e.g. 4d / 5d / 1d). No half-day adjustments.
 // ============================================================
 
-const WEKEN_VOORUIT = 4;
 const WERKUREN_PER_DAG = 8;
 const SHEET_TEAMS = "Teams";
 const SHEET_CAPACITEIT = "Capacity";
@@ -29,12 +28,11 @@ const TEAM_KLEUREN = {
 const MAAND_MAP = {
   jan:0, feb:1, mar:2, apr:3, may:4, jun:5,
   jul:6, aug:7, sep:8, oct:9, nov:10, dec:11,
-  // Dutch fallbacks
   mrt:2, mei:4, okt:9,
 };
 
 // ============================================================
-// SPRINT CONFIG — read from column H of the Teams sheet
+// SPRINT CONFIG — read from column H, auto-generate future sprints
 // ============================================================
 function leesSprintConfig(teamsSheet) {
   const data = teamsSheet.getDataRange().getValues();
@@ -55,43 +53,71 @@ function leesSprintConfig(teamsSheet) {
     sprints.push({ nr: parseInt(nr), naam: `Sprint ${nr}`, start, einde });
   }
 
-  // Derive sprint duration from the examples and auto-generate future sprints
+  // Derive duration from the 2 examples and auto-generate future sprints
   if (sprints.length >= 2) {
     sprints.sort((a, b) => a.nr - b.nr);
-    const duurMs = sprints[1].start - sprints[0].start; // duration in ms
+    const duurMs = sprints[1].start - sprints[0].start;
     const vandaag = new Date();
     let laatste = sprints[sprints.length - 1];
-    while (laatste.einde <= vandaag || sprints.length < sprints[0].nr + 10) {
+    // Generate until we have at least 2 sprints beyond today
+    while (laatste.einde <= vandaag || sprints.filter(s => s.start > vandaag).length < 2) {
       const start = new Date(laatste.einde);
       const einde = new Date(start.getTime() + duurMs);
       const nr = laatste.nr + 1;
       laatste = { nr, naam: `Sprint ${nr}`, start, einde };
       sprints.push(laatste);
-      if (sprints.length > 50) break; // safety cap
+      if (sprints.length > 50) break;
     }
   }
 
   return sprints;
 }
 
-function bepaalSprintVoorWeek(week, sprints) {
-  for (const sprint of sprints) {
-    if (week.start >= sprint.start && week.start < sprint.einde) return sprint;
+// Build the 3 calendar weeks a sprint spans, with actual working days per week.
+// Convention: [sprint.start, sprint.einde) — first day in, last day out.
+function buildSprintWeken(sprint) {
+  const weken = [];
+  const cursor = getMaandagVanWeek(sprint.start);
+  while (cursor < sprint.einde) {
+    const weekStart = new Date(cursor);
+    const weekEinde = new Date(cursor); weekEinde.setDate(cursor.getDate() + 4);
+    // Count working days (Mon–Fri) within [sprint.start, sprint.einde)
+    let werkdagen = 0;
+    const dc = new Date(weekStart);
+    while (dc <= weekEinde) {
+      const dag = dc.getDay();
+      if (dag !== 0 && dag !== 6 && dc >= sprint.start && dc < sprint.einde) werkdagen++;
+      dc.setDate(dc.getDate() + 1);
+    }
+    if (werkdagen > 0) {
+      weken.push({ week: { start: weekStart, einde: weekEinde }, sprint, werkdagen });
+    }
+    cursor.setDate(cursor.getDate() + 7);
   }
-  return null;
+  return weken;
+}
+
+// Count absent days from cache, only for days within [sprintStart, sprintEinde)
+function berekenAfwezigInWeek(dagCache, weekStart, weekEinde, sprintStart, sprintEinde) {
+  let totaalUren = 0;
+  const cursor = new Date(weekStart);
+  while (cursor <= weekEinde) {
+    if (cursor >= sprintStart && cursor < sprintEinde) {
+      totaalUren += dagCache[cursor.toDateString()] || 0;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return Math.round((totaalUren / WERKUREN_PER_DAG) * 4) / 4;
 }
 
 // ============================================================
-// HOOFDFUNCTIE
+// MAIN FUNCTION
 // ============================================================
 function refreshCapaciteit() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   const teamsSheet = ss.getSheetByName(SHEET_TEAMS);
-  if (!teamsSheet) {
-    SpreadsheetApp.getUi().alert('❌ Tab "Teams" not found.');
-    return;
-  }
+  if (!teamsSheet) { SpreadsheetApp.getUi().alert('❌ Tab "Teams" not found.'); return; }
 
   const data = teamsSheet.getDataRange().getValues();
   const teams = {};
@@ -103,41 +129,31 @@ function refreshCapaciteit() {
   });
 
   const teamNamen = Object.keys(teams);
-  if (teamNamen.length === 0) {
-    SpreadsheetApp.getUi().alert('❌ No teams found.');
-    return;
-  }
+  if (teamNamen.length === 0) { SpreadsheetApp.getUi().alert('❌ No teams found.'); return; }
 
   const sprints = leesSprintConfig(teamsSheet);
-
-  // Find current sprint (today within sprint range) or next upcoming
   const vandaag = new Date();
+
+  // Current sprint = today within [start, einde), fallback to next upcoming
   const huidigeSprint = sprints.find(s => vandaag >= s.start && vandaag < s.einde)
     || sprints.slice().sort((a, b) => a.start - b.start).find(s => s.start > vandaag);
   const volgendeSprint = huidigeSprint
     ? sprints.find(s => s.nr === huidigeSprint.nr + 1)
     : null;
 
-  // Build exactly 2 weeks per sprint, anchored to each sprint's own Monday
+  // Build sprint groups: 3 weeks per sprint
   const sprintGroepen = [];
   [huidigeSprint, volgendeSprint].filter(Boolean).forEach(sprint => {
-    const sprintMaandag = getMaandagVanWeek(sprint.start);
-    const weken = [];
-    for (let i = 0; i < 2; i++) {
-      const start = new Date(sprintMaandag); start.setDate(sprintMaandag.getDate() + i * 7);
-      const einde = new Date(start); einde.setDate(start.getDate() + 4);
-      weken.push({ week: { start, einde }, sprint, aanpassing: 0 });
-    }
-    // First week: -0.5 (planning), last week: +0.5 (boundary overlap gives back)
-    weken[0].aanpassing = -0.5;
-    weken[weken.length - 1].aanpassing = 0.5;
+    const weken = buildSprintWeken(sprint);
     sprintGroepen.push({ sprint, weken });
   });
 
-  // Flatten to ordered week columns and set column start index per sprint group
+  // Flatten to ordered week columns and set startKolIdx per group
   const weekKolommen = sprintGroepen.flatMap(g => g.weken);
   let kolIdx = 0;
   sprintGroepen.forEach(groep => { groep.startKolIdx = kolIdx; kolIdx += groep.weken.length; });
+
+  const aantalKolommen = 1 + weekKolommen.length;
 
   // ONE API call per person for the full period
   const alleEmails = [...new Set(teamNamen.flatMap(t => teams[t].map(l => l.email)))];
@@ -159,9 +175,8 @@ function refreshCapaciteit() {
   sheet.clearContents();
   sheet.clearFormats();
 
-  const aantalKolommen = 1 + weekKolommen.length;
-  sheet.setColumnWidth(1, 220);
-  for (let k = 2; k <= aantalKolommen; k++) sheet.setColumnWidth(k, 140);
+  sheet.setColumnWidth(1, 200);
+  for (let k = 2; k <= aantalKolommen; k++) sheet.setColumnWidth(k, 120);
 
   // Main title
   sheet.getRange(1, 1, 1, aantalKolommen).merge();
@@ -174,7 +189,6 @@ function refreshCapaciteit() {
 
   let rij = 2;
 
-  // ---- One block per team ----
   teamNamen.forEach(teamNaam => {
     const leden = teams[teamNaam];
     const teamKleur = TEAM_KLEUREN[teamNaam] || "#5f6368";
@@ -188,26 +202,25 @@ function refreshCapaciteit() {
     sheet.setRowHeight(rij, 28);
     rij++;
 
-    // Sprint header row (name merged over 2 week columns, bold)
-    if (sprints.length > 0) {
-      sheet.getRange(rij, 1).setValue("").setBackground("#e8f0fe");
-      sprintGroepen.forEach(groep => {
-        const kolStart = groep.startKolIdx + 2;
-        const kolBreedte = groep.weken.length;
-        const cel = sheet.getRange(rij, kolStart, 1, kolBreedte);
-        if (kolBreedte > 1) cel.merge();
-        cel.setValue(groep.sprint ? groep.sprint.naam + ` (${formatDatumKort(groep.sprint.start)} – ${formatDatumKort(groep.sprint.einde)})` : "")
-          .setFontWeight("bold").setFontSize(10)
-          .setBackground("#e8f0fe").setHorizontalAlignment("center");
-      });
-      sheet.setRowHeight(rij, 22);
-      rij++;
-    }
+    // Sprint header row — merged over each sprint's columns
+    sheet.getRange(rij, 1).setValue("").setBackground("#e8f0fe");
+    sprintGroepen.forEach(groep => {
+      const kolStart = groep.startKolIdx + 2;
+      const kolBreedte = groep.weken.length;
+      const cel = sheet.getRange(rij, kolStart, 1, kolBreedte);
+      if (kolBreedte > 1) cel.merge();
+      const sprintLabel = `${groep.sprint.naam} (${formatDatumKort(groep.sprint.start)} – ${formatDatumKort(groep.sprint.einde)})`;
+      cel.setValue(sprintLabel)
+        .setFontWeight("bold").setFontSize(10)
+        .setBackground("#e8f0fe").setHorizontalAlignment("center");
+    });
+    sheet.setRowHeight(rij, 22);
+    rij++;
 
-    // Week headers (not bold, no week numbers)
+    // Week headers — date range + working days count
     const headers = ["Team member"];
     weekKolommen.forEach(wk => {
-      headers.push(`${formatDatumKort(wk.week.start)} – ${formatDatumKort(wk.week.einde)}`);
+      headers.push(`${formatDatumKort(wk.week.start)} – ${formatDatumKort(wk.week.einde)}\n(${wk.werkdagen}d)`);
     });
     sheet.getRange(rij, 1, 1, aantalKolommen).setValues([headers])
       .setFontWeight("normal").setBackground("#e8f0fe")
@@ -221,82 +234,70 @@ function refreshCapaciteit() {
       const dagCache = afwezigCache[lid.email] || {};
       const heeftFout = !!kalenderFouten[lid.email];
       const rowData = [lid.naam];
-      const beschikbaarPerWeek = [];
+      const beschikbaarData = [];
 
       weekKolommen.forEach(wk => {
-        const afwezig = berekenAfwezigVanuitCache(dagCache, wk.week.start, wk.week.einde);
-        const aanpassing = heeftFout ? 0 : wk.aanpassing;
-        const beschikbaar = Math.max(0, Math.round((5 - afwezig + aanpassing) * 4) / 4);
-        beschikbaarPerWeek.push(beschikbaar);
+        const afwezig = berekenAfwezigInWeek(dagCache, wk.week.start, wk.week.einde, wk.sprint.start, wk.sprint.einde);
+        const beschikbaar = Math.max(0, Math.round((wk.werkdagen - afwezig) * 4) / 4);
+        beschikbaarData.push({ beschikbaar, werkdagen: wk.werkdagen });
         if (heeftFout) {
           rowData.push("⚠️ no access");
         } else {
           const label = Number.isInteger(beschikbaar) ? beschikbaar : beschikbaar.toFixed(2).replace('.', ',');
-          rowData.push(label + " / 5 days");
+          rowData.push(`${label} / ${wk.werkdagen} d`);
         }
       });
 
       sheet.getRange(rij, 1, 1, aantalKolommen).setValues([rowData]);
-      sheet.getRange(rij, 2, 1, WEKEN_VOORUIT).setHorizontalAlignment("center");
+      sheet.getRange(rij, 2, 1, weekKolommen.length).setHorizontalAlignment("center");
 
       if (heeftFout) {
         sheet.getRange(rij, 1, 1, aantalKolommen).setBackground("#fff3e0").setFontColor("#e65100");
       } else {
-        beschikbaarPerWeek.forEach((beschikbaar, idx) => {
+        beschikbaarData.forEach(({ beschikbaar, werkdagen }, idx) => {
           const cel = sheet.getRange(rij, 2 + idx);
-          if (beschikbaar >= 5) cel.setBackground("#e6f4ea");
-          else if (beschikbaar >= 3) cel.setBackground("#fef9c3");
+          const ratio = werkdagen > 0 ? beschikbaar / werkdagen : 1;
+          if (ratio >= 1) cel.setBackground("#e6f4ea");
+          else if (ratio >= 0.5) cel.setBackground("#fef9c3");
           else cel.setBackground("#fce8e6");
         });
       }
       rij++;
     });
 
-    // Calculate man-days per week (needed for sprint totals)
-    const totaalBeschikbaarPerWeek = [];
+    // MD / Sprint (%) row — merged per sprint
     const geldigeLeden = leden.filter(l => !kalenderFouten[l.email]).length;
-    weekKolommen.forEach(wk => {
-      let totaal = 0;
-      leden.forEach(lid => {
-        if (kalenderFouten[lid.email]) return;
-        const dagCache = afwezigCache[lid.email] || {};
-        const afwezig = berekenAfwezigVanuitCache(dagCache, wk.week.start, wk.week.einde);
-        totaal += Math.max(0, 5 - afwezig + wk.aanpassing);
-      });
-      totaalBeschikbaarPerWeek.push(totaal);
-    });
-
-    // MD / Sprint (%) row — label bold, merged sprint cells bold
-    if (sprints.length > 0) {
-      sheet.getRange(rij, 1).setValue("MD / Sprint (%)")
-        .setFontWeight("bold").setBackground("#e8f0fe");
-      sprintGroepen.forEach(groep => {
-        const kolStart = groep.startKolIdx + 2;
-        const kolBreedte = groep.weken.length;
-        let sprintMandagen = 0;
-        groep.weken.forEach(wk => {
-          sprintMandagen += totaalBeschikbaarPerWeek[weekKolommen.indexOf(wk)] || 0;
+    sheet.getRange(rij, 1).setValue("MD / Sprint (%)")
+      .setFontWeight("bold").setBackground("#e8f0fe");
+    sprintGroepen.forEach(groep => {
+      const kolStart = groep.startKolIdx + 2;
+      const kolBreedte = groep.weken.length;
+      const maxMandagen = geldigeLeden * groep.weken.reduce((s, wk) => s + wk.werkdagen, 0);
+      let sprintMandagen = 0;
+      groep.weken.forEach(wk => {
+        leden.forEach(lid => {
+          if (kalenderFouten[lid.email]) return;
+          const dagCache = afwezigCache[lid.email] || {};
+          const afwezig = berekenAfwezigInWeek(dagCache, wk.week.start, wk.week.einde, wk.sprint.start, wk.sprint.einde);
+          sprintMandagen += Math.max(0, wk.werkdagen - afwezig);
         });
-        const maxMandagen = 5 * geldigeLeden * groep.weken.length;
-        const pct = maxMandagen > 0 ? Math.round((sprintMandagen / maxMandagen) * 100) : 0;
-        const mdLabel = Number.isInteger(sprintMandagen)
-          ? sprintMandagen
-          : sprintMandagen.toFixed(1).replace('.', ',');
-        const cel = sheet.getRange(rij, kolStart, 1, kolBreedte);
-        if (kolBreedte > 1) cel.merge();
-        cel.setValue(`${mdLabel} MD (${pct}%)`)
-          .setFontWeight("bold").setBackground("#e8f0fe")
-          .setHorizontalAlignment("center");
       });
-      rij++;
-    }
+      const pct = maxMandagen > 0 ? Math.round((sprintMandagen / maxMandagen) * 100) : 0;
+      const mdLabel = Number.isInteger(sprintMandagen) ? sprintMandagen : sprintMandagen.toFixed(1).replace('.', ',');
+      const cel = sheet.getRange(rij, kolStart, 1, kolBreedte);
+      if (kolBreedte > 1) cel.merge();
+      cel.setValue(`${mdLabel} MD (${pct}%)`)
+        .setFontWeight("bold").setBackground("#e8f0fe")
+        .setHorizontalAlignment("center");
+    });
+    rij++;
 
     // Empty row
     sheet.setRowHeight(rij, 16);
     rij++;
   });
 
-  // Summarize errors at the bottom
+  // Errors at the bottom
   const foutenLijst = Object.entries(kalenderFouten);
   if (foutenLijst.length > 0) {
     rij++;
@@ -327,7 +328,6 @@ function refreshCapaciteit() {
 // ============================================================
 function haalAfwezighedenOp(email, periodeStart, periodeEinde) {
   const dagData = {};
-
   try {
     const response = Calendar.Events.list(email, {
       timeMin: periodeStart.toISOString(),
@@ -335,15 +335,11 @@ function haalAfwezighedenOp(email, periodeStart, periodeEinde) {
       eventTypes: ["outOfOffice"],
       singleEvents: true,
     });
-
     (response.items || []).forEach(event => {
       const evStart = new Date(event.start.dateTime || event.start.date);
       const evEinde = new Date(event.end.dateTime || event.end.date);
       const isAllDay = !!event.start.date && !event.start.dateTime;
-
-      const cursor = new Date(evStart);
-      cursor.setHours(0, 0, 0, 0);
-
+      const cursor = new Date(evStart); cursor.setHours(0,0,0,0);
       while (cursor < evEinde) {
         const dag = cursor.getDay();
         if (dag !== 0 && dag !== 6) {
@@ -351,37 +347,22 @@ function haalAfwezighedenOp(email, periodeStart, periodeEinde) {
           if (isAllDay) {
             dagData[key] = WERKUREN_PER_DAG;
           } else {
-            const dagStart = new Date(cursor); dagStart.setHours(9, 0, 0, 0);
-            const dagEinde = new Date(cursor); dagEinde.setHours(17, 0, 0, 0);
+            const dagStart = new Date(cursor); dagStart.setHours(9,0,0,0);
+            const dagEinde = new Date(cursor); dagEinde.setHours(17,0,0,0);
             const overlapMs = Math.min(evEinde, dagEinde) - Math.max(evStart, dagStart);
             if (overlapMs > 0) {
-              const uren = overlapMs / (1000 * 60 * 60);
-              dagData[key] = Math.min(WERKUREN_PER_DAG, (dagData[key] || 0) + uren);
+              dagData[key] = Math.min(WERKUREN_PER_DAG, (dagData[key] || 0) + overlapMs / (1000 * 60 * 60));
             }
           }
         }
         cursor.setDate(cursor.getDate() + 1);
       }
     });
-
     return { dagData, fout: null };
-
   } catch (e) {
     Logger.log("Error for " + email + ": " + e.message);
     return { dagData, fout: e.message };
   }
-}
-
-// Calculate absence from cache — no extra API call
-function berekenAfwezigVanuitCache(dagCache, weekStart, weekEinde) {
-  let totaalUren = 0;
-  const cursor = new Date(weekStart);
-  while (cursor <= weekEinde) {
-    const key = cursor.toDateString();
-    totaalUren += dagCache[key] || 0;
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return Math.min(Math.round((totaalUren / WERKUREN_PER_DAG) * 4) / 4, 5);
 }
 
 // ============================================================
@@ -401,16 +382,8 @@ function getMaandagVanWeek(datum) {
   const d = new Date(datum);
   const diff = d.getDay() === 0 ? -6 : 1 - d.getDay();
   d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
+  d.setHours(0,0,0,0);
   return d;
-}
-
-function getWeeknummer(datum) {
-  const d = new Date(Date.UTC(datum.getFullYear(), datum.getMonth(), datum.getDate()));
-  const dagNr = (d.getUTCDay() + 6) % 7;
-  d.setUTCDate(d.getUTCDate() - dagNr + 3);
-  const eersteJan = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
-  return 1 + Math.round(((d - eersteJan) / 86400000 - 3 + (eersteJan.getUTCDay() + 6) % 7) / 7);
 }
 
 function formatDatum(d) {
