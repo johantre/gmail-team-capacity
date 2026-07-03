@@ -123,8 +123,8 @@ function berekenAfwezigInWeek(dagCache, weekStart, weekEinde, sprintStart, sprin
 // ============================================================
 function refreshCapaciteit() {
   const html = HtmlService.createHtmlOutputFromFile('Loading')
-    .setWidth(280).setHeight(280);
-  SpreadsheetApp.getUi().showModalDialog(html, ' ');
+    .setWidth(300).setHeight(320);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Team Capacity');
 }
 
 function doRefresh() {
@@ -387,15 +387,15 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("📅 Capacity")
     .addItem("🔄 Refresh capacity", "refreshCapaciteit")
+    .addItem("⚙️ Install auto-refresh trigger", "installeerTrigger")
     .addToUi();
 }
 
-// Run this ONCE manually from the Apps Script editor to install the on-open trigger.
-// Simple onOpen() cannot make external API calls — an installable trigger can.
+// Run once via the menu to install the installable on-open trigger.
+// An installable trigger CAN call the Calendar API; simple onOpen() cannot.
 function installeerTrigger() {
-  // Remove existing on-open triggers to avoid duplicates
   ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === 'doRefresh' && t.getEventType() === ScriptApp.EventType.ON_OPEN)
+    .filter(t => t.getHandlerFunction() === 'doRefresh')
     .forEach(t => ScriptApp.deleteTrigger(t));
 
   ScriptApp.newTrigger('doRefresh')
@@ -403,7 +403,7 @@ function installeerTrigger() {
     .onOpen()
     .create();
 
-  SpreadsheetApp.getUi().alert('✅ Trigger installed — doRefresh() will run automatically on open.');
+  SpreadsheetApp.getUi().alert('✅ Auto-refresh installed — capacity will load automatically on open.');
 }
 
 // ============================================================
