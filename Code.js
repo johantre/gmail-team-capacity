@@ -93,48 +93,34 @@ function refreshCapaciteit() {
 
   const sprints = leesSprintConfig(teamsSheet);
 
-  // Calculate weeks — start from the current sprint's Monday so full sprints are shown
+  // Find current sprint (today within sprint range) or next upcoming
   const vandaag = new Date();
-  const huidigeSprint = sprints.find(s => vandaag >= s.start && vandaag < s.einde);
-  const startpunt = huidigeSprint ? getMaandagVanWeek(huidigeSprint.start) : getMaandagVanWeek(vandaag);
-  const weken = [];
-  for (let i = 0; i < WEKEN_VOORUIT; i++) {
-    const start = new Date(startpunt); start.setDate(startpunt.getDate() + i * 7);
-    const einde = new Date(start); einde.setDate(start.getDate() + 4);
-    weken.push({ start, einde });
-  }
+  const huidigeSprint = sprints.find(s => vandaag >= s.start && vandaag < s.einde)
+    || sprints.slice().sort((a, b) => a.start - b.start).find(s => s.start > vandaag);
+  const volgendeSprint = huidigeSprint
+    ? sprints.find(s => s.nr === huidigeSprint.nr + 1)
+    : null;
 
-  // Link each week to a sprint
-  const weekKolommen = weken.map(week => ({
-    week,
-    sprint: bepaalSprintVoorWeek(week, sprints),
-    aanpassing: 0, // sprint boundary adjustment: -0.5 first week, +0.5 last week
-  }));
-
-  // Group consecutive weeks per sprint
+  // Build exactly 2 weeks per sprint, anchored to each sprint's own Monday
   const sprintGroepen = [];
-  let gi = 0;
-  while (gi < weekKolommen.length) {
-    const huidigeSprint = weekKolommen[gi].sprint;
-    const groep = { sprint: huidigeSprint, startKolIdx: gi, weken: [] };
-    while (gi < weekKolommen.length) {
-      const wk = weekKolommen[gi];
-      const zelfde = (!huidigeSprint && !wk.sprint) ||
-        (huidigeSprint && wk.sprint && wk.sprint.nr === huidigeSprint.nr);
-      if (!zelfde) break;
-      groep.weken.push(wk);
-      gi++;
+  [huidigeSprint, volgendeSprint].filter(Boolean).forEach(sprint => {
+    const sprintMaandag = getMaandagVanWeek(sprint.start);
+    const weken = [];
+    for (let i = 0; i < 2; i++) {
+      const start = new Date(sprintMaandag); start.setDate(sprintMaandag.getDate() + i * 7);
+      const einde = new Date(start); einde.setDate(start.getDate() + 4);
+      weken.push({ week: { start, einde }, sprint, aanpassing: 0 });
     }
-    sprintGroepen.push(groep);
-  }
-
-  // Apply sprint boundary adjustments:
-  // first week of sprint: -0.5 (planning), last week: +0.5 (boundary overlap gives back)
-  sprintGroepen.forEach(groep => {
-    if (!groep.sprint || groep.weken.length === 0) return;
-    groep.weken[0].aanpassing -= 0.5;
-    groep.weken[groep.weken.length - 1].aanpassing += 0.5;
+    // First week: -0.5 (planning), last week: +0.5 (boundary overlap gives back)
+    weken[0].aanpassing = -0.5;
+    weken[weken.length - 1].aanpassing = 0.5;
+    sprintGroepen.push({ sprint, weken });
   });
+
+  // Flatten to ordered week columns and set column start index per sprint group
+  const weekKolommen = sprintGroepen.flatMap(g => g.weken);
+  let kolIdx = 0;
+  sprintGroepen.forEach(groep => { groep.startKolIdx = kolIdx; kolIdx += groep.weken.length; });
 
   // ONE API call per person for the full period
   const alleEmails = [...new Set(teamNamen.flatMap(t => teams[t].map(l => l.email)))];
