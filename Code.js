@@ -135,11 +135,19 @@ function doRefresh(vanSidebar) {
 
   const data = teamsSheet.getDataRange().getValues();
   const teams = {};
+  const teamIds = {};
+  // Find "Team id" column from header row
+  const headerRij = data[0] || [];
+  const teamIdKolIdx = headerRij.findIndex(h => h.toString().trim().toLowerCase() === 'team id');
   data.forEach(rij => {
     const [team, naam, email] = rij.map(v => v.toString().trim());
     if (!email || !email.includes("@")) return;
     if (!teams[team]) teams[team] = [];
     teams[team].push({ naam, email });
+    if (!teamIds[team] && teamIdKolIdx >= 0) {
+      const id = (rij[teamIdKolIdx] || '').toString().trim();
+      if (id) teamIds[team] = id;
+    }
   });
 
   const teamNamen = Object.keys(teams);
@@ -191,7 +199,7 @@ function doRefresh(vanSidebar) {
       const naam = (row[0] || '').toString().trim();
       if (teamNamen.includes(naam)) {
         // Velocity is stored as a number in the last cell of the team header row
-        const vel = row[row.length - 1];
+        const vel = row[aantalKolommen - 1];
         if (typeof vel === 'number' && vel > 0) savedVelocities[naam] = vel;
       }
     });
@@ -202,11 +210,12 @@ function doRefresh(vanSidebar) {
 
   sheet.setColumnWidth(1, 200);
   for (let k = 2; k <= aantalKolommen; k++) sheet.setColumnWidth(k, 120);
+  sheet.setColumnWidth(aantalKolommen + 1, 36);
 
   // Main title
-  sheet.getRange(1, 1, 1, aantalKolommen).merge();
+  sheet.getRange(1, 1, 1, aantalKolommen + 1).merge();
   sheet.getRange(1, 1)
-    .setValue("🗓️ Team Capacity — updated on " + formatDatum(vandaag))
+    .setValue("📅 Team Capacity — updated on " + formatDatum(vandaag))
     .setFontFamily("Montserrat").setFontSize(13).setFontWeight("bold")
     .setBackground(GRIJS).setFontColor("#ffffff")
     .setHorizontalAlignment("center");
@@ -239,6 +248,16 @@ function doRefresh(vanSidebar) {
       .setFontFamily(teamStyle.font).setFontSize(10).setFontWeight("bold")
       .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
       .setHorizontalAlignment("right");
+    const teamId = teamIds[teamNaam] || '';
+    if (teamId) {
+      const url = `https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/${teamId}/reports/velocity`;
+      sheet.getRange(rij, aantalKolommen + 1)
+        .setFormula(`=HYPERLINK("${url}";"📊")`)
+        .setFontSize(14).setHorizontalAlignment("center").setVerticalAlignment("middle")
+        .setBackground(teamKleur).setFontColor("#ffffff");
+    } else {
+      sheet.getRange(rij, aantalKolommen + 1).setBackground(teamKleur);
+    }
     sheet.setRowHeight(rij, 28);
     rij++;
 
