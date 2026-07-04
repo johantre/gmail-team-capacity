@@ -122,10 +122,12 @@ function berekenAfwezigInWeek(dagCache, weekStart, weekEinde, sprintStart, sprin
 // refreshCapaciteit() shows the loading dialog; the dialog calls doRefresh()
 // ============================================================
 function refreshCapaciteit() {
-  doRefresh();
+  const html = HtmlService.createHtmlOutputFromFile('Loading')
+    .setTitle('Team Capacity');
+  SpreadsheetApp.getUi().showSidebar(html);
 }
 
-function doRefresh() {
+function doRefresh(vanSidebar) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   const teamsSheet = ss.getSheetByName(SHEET_TEAMS);
@@ -327,7 +329,7 @@ function doRefresh() {
         .setBackground("#fff8f0").setFontColor("#bf360c");
       rij++;
     });
-    ss.toast('✅ Capacity updated!', '🗓️ Team Capacity', 5);
+    if (!vanSidebar) ss.toast('✅ Capacity updated!', '🗓️ Team Capacity', 5);
     if (foutenLijst.length > 0) {
       Logger.log(`Calendar access errors: ${foutenLijst.map(([e]) => e).join(', ')}`);
     }
@@ -394,7 +396,7 @@ function installeerTrigger() {
     .filter(t => t.getHandlerFunction() === 'doRefresh')
     .forEach(t => ScriptApp.deleteTrigger(t));
 
-  ScriptApp.newTrigger('doRefresh')
+  ScriptApp.newTrigger('refreshCapaciteit')
     .forSpreadsheet(SpreadsheetApp.getActive())
     .onOpen()
     .create();
