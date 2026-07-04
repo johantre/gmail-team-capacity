@@ -223,7 +223,7 @@ function doRefresh(vanSidebar) {
   sheet.clearFormats();
 
   sheet.setColumnWidth(1, 200);
-  sheet.setColumnWidth(2, 120);
+  sheet.setColumnWidth(2, 36);
   for (let k = 3; k <= aantalKolommen; k++) sheet.setColumnWidth(k, 120);
 
   // Main title
