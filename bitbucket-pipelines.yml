@@ -1,0 +1,11 @@
+image: node:20
+
+pipelines:
+  branches:
+    main:
+      - step:
+          name: Deploy naar Apps Script
+          script:
+            - npm install -g @google/clasp
+            - echo "$CLASPRC_JSON" > ~/.clasprc.json
+            - clasp push --force
