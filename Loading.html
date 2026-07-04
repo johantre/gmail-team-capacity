@@ -48,7 +48,7 @@
 </head>
 <body>
 
-  <div class="logo-wrap">
+  <div class="logo-wrap" tabindex="-1">
     <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 194.67 213.24">
       <defs>
         <linearGradient id="g" x1="64.8" y1="106.62" x2="129.81" y2="106.62" gradientUnits="userSpaceOnUse">
@@ -64,6 +64,7 @@
   <p class="label">Loading capacity data…</p>
 
   <script>
+    document.querySelector('.logo-wrap').focus();
     google.script.run
       .withSuccessHandler(function() {
         document.body.classList.add('done');
