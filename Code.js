@@ -160,7 +160,6 @@ function doRefresh(vanSidebar) {
       if (sprint) sprintGroepen.push({ sprint, weken: buildSprintWeken(sprint) });
     }
   }
-  });
 
   // Flatten to ordered week columns and set startKolIdx per group
   const weekKolommen = sprintGroepen.flatMap(g => g.weken);
