@@ -223,7 +223,7 @@ function doRefresh(vanSidebar) {
   sheet.clearFormats();
 
   sheet.setColumnWidth(1, 200);
-  sheet.setColumnWidth(2, 8);
+  sheet.setColumnWidth(2, 120);
   for (let k = 3; k <= aantalKolommen; k++) sheet.setColumnWidth(k, 120);
 
   // Main title
@@ -254,16 +254,17 @@ function doRefresh(vanSidebar) {
       .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
       .setHorizontalAlignment("left");
 
-    sheet.getRange(rij, 2).setBackground(teamStyle.bg);
+    const teamLetter = teamNaam.replace(/^Team\s*/i, '').charAt(0).toUpperCase();
     if (teamId) {
       const jiraUrl = `https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/${teamId}/reports/velocity`;
-      sheet.getRange(rij, 3)
-        .setFormula(`=HYPERLINK("${jiraUrl}";"📊")`)
-        .setFontSize(16).setHorizontalAlignment("center").setVerticalAlignment("middle")
+      sheet.getRange(rij, 2)
+        .setFormula(`=HYPERLINK("${jiraUrl}";"[${teamLetter}] Velocity chart")`)
+        .setFontSize(10).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle")
         .setBackground(teamStyle.bg).setFontColor(teamStyle.fg);
     } else {
-      sheet.getRange(rij, 3).setBackground(teamStyle.bg);
+      sheet.getRange(rij, 2).setBackground(teamStyle.bg);
     }
+    sheet.getRange(rij, 3).setBackground(teamStyle.bg);
 
     if (aantalKolommen > 4) {
       sheet.getRange(rij, 4, 1, aantalKolommen - 4).merge()
