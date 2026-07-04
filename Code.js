@@ -135,13 +135,11 @@ function doRefresh(vanSidebar) {
 
   const data = teamsSheet.getDataRange().getValues();
   const teams = {};
-  const teamVelocity = {};
   data.forEach(rij => {
-    const [team, naam, email, velocity] = rij.map(v => v.toString().trim());
+    const [team, naam, email] = rij.map(v => v.toString().trim());
     if (!email || !email.includes("@")) return;
     if (!teams[team]) teams[team] = [];
     teams[team].push({ naam, email });
-    if (!teamVelocity[team] && velocity) teamVelocity[team] = parseFloat(velocity) || 0;
   });
 
   const teamNamen = Object.keys(teams);
@@ -185,8 +183,20 @@ function doRefresh(vanSidebar) {
     if (fout) kalenderFouten[email] = fout;
   });
 
-  // Set up sheet
+  // Set up sheet — read velocities before clearing so user-entered values survive refresh
   let sheet = ss.getSheetByName(SHEET_CAPACITEIT);
+  const savedVelocities = {};
+  if (sheet) {
+    const existingVals = sheet.getDataRange().getValues();
+    existingVals.forEach(row => {
+      const naam = (row[0] || '').toString().trim();
+      if (teamNamen.includes(naam)) {
+        // Velocity is stored as a number in the last cell of the team header row
+        const vel = row[row.length - 1];
+        if (typeof vel === 'number' && vel > 0) savedVelocities[naam] = vel;
+      }
+    });
+  }
   if (!sheet) sheet = ss.insertSheet(SHEET_CAPACITEIT);
   sheet.clearContents();
   sheet.clearFormats();
@@ -209,17 +219,25 @@ function doRefresh(vanSidebar) {
     const leden = teams[teamNaam];
     const teamKleur = TEAM_KLEUREN[teamNaam] || "#5f6368";
 
-    // Team title — name left, average velocity right
-    const velocity = teamVelocity[teamNaam] || 0;
+    // Team title — name left | "Average Velocity:" label | editable number right
+    const velocity = savedVelocities[teamNaam] || 0;
+    const teamStyle = { font: "Montserrat", bg: teamKleur, fg: "#ffffff" };
     sheet.getRange(rij, 1).setValue(teamNaam)
-      .setFontFamily("Montserrat").setFontSize(11).setFontWeight("bold")
-      .setBackground(teamKleur).setFontColor("#ffffff")
+      .setFontFamily(teamStyle.font).setFontSize(11).setFontWeight("bold")
+      .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
       .setHorizontalAlignment("left");
-    const velocityCel = sheet.getRange(rij, 2, 1, aantalKolommen - 1);
-    velocityCel.merge();
-    velocityCel.setValue(velocity ? `Average Velocity: ${velocity} SP` : '')
-      .setFontFamily("Montserrat").setFontSize(10).setFontWeight("normal")
-      .setBackground(teamKleur).setFontColor("#ffffff")
+    if (aantalKolommen > 2) {
+      sheet.getRange(rij, 2, 1, aantalKolommen - 2).merge()
+        .setValue("Average Velocity:")
+        .setFontFamily(teamStyle.font).setFontSize(10).setFontWeight("normal")
+        .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
+        .setHorizontalAlignment("right");
+    }
+    sheet.getRange(rij, aantalKolommen)
+      .setValue(velocity || null)
+      .setNumberFormat('0" SP"')
+      .setFontFamily(teamStyle.font).setFontSize(10).setFontWeight("bold")
+      .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
       .setHorizontalAlignment("right");
     sheet.setRowHeight(rij, 28);
     rij++;
