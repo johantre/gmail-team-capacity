@@ -15,6 +15,10 @@
 // ============================================================
 
 const WERKUREN_PER_DAG = 8;
+
+// Inline SVG icons (white, Tabler style) — no internet needed, sourced from res/
+const SVG_CALENDAR = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z"/><path d="M16 3l0 4"/><path d="M8 3l0 4"/><path d="M4 11l16 0"/><path d="M8 15h2v2h-2z"/></svg>';
+const SVG_CHART    = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-5"/><path d="M11 16v-8"/><path d="M15 16v-3"/></svg>';
 const SHEET_TEAMS = "Teams";
 const SHEET_CAPACITEIT = "Capacity";
 
@@ -409,22 +413,46 @@ function doRefresh(vanSidebar) {
     rij++;
   });
 
-  // Insert over-grid icons (calendar in title, chart links per team)
+  // Insert over-grid icons — 1) inline SVG  2) Iconify CDN  3) emoji fallback
   if (pendingImages.length > 0) {
+    let calBlob = null, chartBlob = null, usedFallback = false;
+
+    // 1) Try inline SVG blobs (no internet needed)
     try {
-      const calBlob = UrlFetchApp.fetch(
-        'https://api.iconify.design/tabler:calendar-event.svg?color=%23ffffff&width=22&height=22'
-      ).getBlob().setName('calendar.svg');
-      const chartBlob = UrlFetchApp.fetch(
-        'https://api.iconify.design/tabler:chart-bar.svg?color=%23ffffff&width=20&height=20'
-      ).getBlob().setName('chart.svg');
+      calBlob   = Utilities.newBlob(SVG_CALENDAR, 'image/svg+xml', 'calendar.svg');
+      chartBlob = Utilities.newBlob(SVG_CHART,    'image/svg+xml', 'chart.svg');
       pendingImages.forEach(p => {
         const blob = p.type === 'calendar' ? calBlob : chartBlob;
         const img = sheet.insertImage(blob, p.col, p.row, p.offsetX || 4, p.offsetY || 4);
         if (p.url) img.setLinkUrl(p.url);
       });
-    } catch (e) {
-      Logger.log('Icon fetch failed: ' + e.message);
+    } catch (e1) {
+      Logger.log('Inline SVG insert failed, trying Iconify: ' + e1.message);
+
+      // 2) Try Iconify CDN
+      try {
+        calBlob   = UrlFetchApp.fetch('https://api.iconify.design/tabler:calendar-event.svg?color=%23ffffff&width=22&height=22').getBlob().setName('calendar.svg');
+        chartBlob = UrlFetchApp.fetch('https://api.iconify.design/tabler:chart-bar.svg?color=%23ffffff&width=20&height=20').getBlob().setName('chart.svg');
+        pendingImages.forEach(p => {
+          const blob = p.type === 'calendar' ? calBlob : chartBlob;
+          const img = sheet.insertImage(blob, p.col, p.row, p.offsetX || 4, p.offsetY || 4);
+          if (p.url) img.setLinkUrl(p.url);
+        });
+      } catch (e2) {
+        Logger.log('Iconify fetch failed, using emoji fallback: ' + e2.message);
+        usedFallback = true;
+      }
+    }
+
+    // 3) Emoji fallback
+    if (usedFallback) {
+      const titleVal = sheet.getRange(1, 1).getValue();
+      sheet.getRange(1, 1).setValue('📅' + titleVal.replace(/^\s+/, ' '));
+      pendingImages.filter(p => p.type === 'chart' && p.url).forEach(p => {
+        sheet.getRange(p.row, aantalKolommen + 1)
+          .setFormula(`=HYPERLINK("${p.url}";"📊")`)
+          .setFontSize(14).setHorizontalAlignment("center").setFontColor("#ffffff");
+      });
     }
   }
 
