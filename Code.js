@@ -187,7 +187,7 @@ function doRefresh(vanSidebar) {
   let kolIdx = 0;
   sprintGroepen.forEach(groep => { groep.startKolIdx = kolIdx; kolIdx += groep.weken.length; });
 
-  const aantalKolommen = 1 + weekKolommen.length;
+  const aantalKolommen = 2 + weekKolommen.length;
 
   // ONE API call per person for the full period
   const alleEmails = [...new Set(teamNamen.flatMap(t => teams[t].map(l => l.email)))];
@@ -223,8 +223,8 @@ function doRefresh(vanSidebar) {
   sheet.clearFormats();
 
   sheet.setColumnWidth(1, 200);
-  for (let k = 2; k <= aantalKolommen; k++) sheet.setColumnWidth(k, 120);
-  sheet.setColumnWidth(2, 36);
+  sheet.setColumnWidth(2, 8);
+  for (let k = 3; k <= aantalKolommen; k++) sheet.setColumnWidth(k, 120);
 
   // Main title
   sheet.getRange(1, 1, 1, aantalKolommen).merge();
@@ -254,18 +254,19 @@ function doRefresh(vanSidebar) {
       .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
       .setHorizontalAlignment("left");
 
+    sheet.getRange(rij, 2).setBackground(teamStyle.bg);
     if (teamId) {
       const jiraUrl = `https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/${teamId}/reports/velocity`;
-      sheet.getRange(rij, 2)
+      sheet.getRange(rij, 3)
         .setFormula(`=HYPERLINK("${jiraUrl}";"📊")`)
         .setFontSize(16).setHorizontalAlignment("center").setVerticalAlignment("middle")
         .setBackground(teamStyle.bg).setFontColor(teamStyle.fg);
     } else {
-      sheet.getRange(rij, 2).setBackground(teamStyle.bg);
+      sheet.getRange(rij, 3).setBackground(teamStyle.bg);
     }
 
-    if (aantalKolommen > 3) {
-      sheet.getRange(rij, 3, 1, aantalKolommen - 3).merge()
+    if (aantalKolommen > 4) {
+      sheet.getRange(rij, 4, 1, aantalKolommen - 4).merge()
         .setValue("Average Velocity:")
         .setFontFamily(teamStyle.font).setFontSize(10).setFontWeight("normal")
         .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
@@ -282,8 +283,9 @@ function doRefresh(vanSidebar) {
 
     // Sprint header row — merged over each sprint's columns
     sheet.getRange(rij, 1).setValue("").setBackground(BLAUW_LICHT);
+    sheet.getRange(rij, 2).setBackground(BLAUW_LICHT);
     sprintGroepen.forEach(groep => {
-      const kolStart = groep.startKolIdx + 2;
+      const kolStart = groep.startKolIdx + 3;
       const kolBreedte = groep.weken.length;
       const cel = sheet.getRange(rij, kolStart, 1, kolBreedte);
       if (kolBreedte > 1) cel.merge();
@@ -296,7 +298,7 @@ function doRefresh(vanSidebar) {
     rij++;
 
     // Week headers — date range + working days count
-    const headers = ["Team member"];
+    const headers = ["Team member", ""];
     weekKolommen.forEach(wk => {
       headers.push(`${formatDatumKort(wk.week.start)} – ${formatDatumKort(wk.week.einde)}\n(${wk.werkdagen})`);
     });
@@ -312,7 +314,7 @@ function doRefresh(vanSidebar) {
     leden.forEach(lid => {
       const dagCache = afwezigCache[lid.email] || {};
       const heeftFout = !!kalenderFouten[lid.email];
-      const rowData = [lid.naam];
+      const rowData = [lid.naam, ""];
       const beschikbaarData = [];
 
       weekKolommen.forEach(wk => {
@@ -328,13 +330,13 @@ function doRefresh(vanSidebar) {
       });
 
       sheet.getRange(rij, 1, 1, aantalKolommen).setValues([rowData]).setFontFamily("Montserrat");
-      sheet.getRange(rij, 2, 1, weekKolommen.length).setHorizontalAlignment("center");
+      sheet.getRange(rij, 3, 1, weekKolommen.length).setHorizontalAlignment("center");
 
       if (heeftFout) {
         sheet.getRange(rij, 1, 1, aantalKolommen).setBackground("#fff3e0").setFontColor("#e65100");
       } else {
         beschikbaarData.forEach(({ beschikbaar, werkdagen }, idx) => {
-          const cel = sheet.getRange(rij, 2 + idx);
+          const cel = sheet.getRange(rij, 3 + idx);
           const ratio = werkdagen > 0 ? beschikbaar / werkdagen : 1;
           if (ratio >= 1) cel.setBackground("#e6f4ea");
           else if (ratio >= 0.5) cel.setBackground("#fef9c3");
@@ -353,9 +355,10 @@ function doRefresh(vanSidebar) {
     sheet.getRange(rij, 1).setValue("MD / Sprint (%)")
       .setFontFamily("Montserrat").setFontWeight("bold")
       .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS);
+    sheet.getRange(rij, 2).setBackground(TURQUOISE_LICHT);
     const sprintRanges = [];
     sprintGroepen.forEach(groep => {
-      const kolStart = groep.startKolIdx + 2;
+      const kolStart = groep.startKolIdx + 3;
       const kolBreedte = groep.weken.length;
       const kolEinde = kolStart + kolBreedte - 1;
       const maxMandagen = geldigeLeden * groep.weken.reduce((s, wk) => s + wk.werkdagen, 0);
@@ -409,6 +412,7 @@ function doRefresh(vanSidebar) {
     sheet.getRange(rij, 1).setValue("→ Projected SP")
       .setFontFamily("Montserrat").setFontWeight("bold")
       .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS);
+    sheet.getRange(rij, 2).setBackground(TURQUOISE_LICHT);
     sprintRanges.forEach(d => {
       const spRef = colLetter(d.kolStart) + rijCurrentMD;
       const maxRef = colLetter(d.kolStart) + rijFullMD;
