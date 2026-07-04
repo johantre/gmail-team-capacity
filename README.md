@@ -101,29 +101,51 @@ This value updates live as you change the velocity — no refresh needed. The ve
 - Google Apps Script project linked to a Google Sheet
 - **Advanced Google Services** enabled in Apps Script: `Google Calendar API`
 
+## Column positions in the Teams tab
+
+| Section         | Columns       | Flexible? |
+|-----------------|---------------|-----------|
+| Team members    | A, B, C       | ❌ Fixed  |
+| Team IDs        | any two adjacent columns with `id` as header | ✅ Flexible |
+| Sprint config   | H             | ❌ Fixed  |
+
+The team ID section is detected dynamically: the script scans the first 3 rows for a cell containing exactly `id` and treats the column to its left as the team name. It can be placed anywhere as long as the header row has `id` in it.
+
 ## Setup
 
-### 1. Prepare your Google Sheet
+### 1. Create a new Google Sheet
 
 Create a Google Sheet with two tabs:
-- **Teams** — structured as described above
-- **Capacity** — created and filled automatically by the script
+- **Teams** — structured as described above (columns A–C for members, H for sprints, optional ID section)
+- **Capacity** — leave this empty; the script creates and fills it automatically
 
-### 2. Link Apps Script
+### 2. Link Apps Script to the Sheet
 
-Go to **Extensions → Apps Script** in your Sheet, paste the contents of `Code.js` and enable the **Google Calendar API** via **Services → Google Calendar API**.
+1. Open your Sheet → **Extensions → Apps Script**
+2. Delete any existing code and paste the contents of `Code.js`
+3. Enable the Calendar API: **Services → Google Calendar API → Add**
+4. Save and close
 
-### 3. Link locally via clasp
+### 3. Get the Script ID
 
-```bash
-npm install -g @google/clasp
-clasp login
-clasp clone <script-id>
+In Apps Script: **Project settings (⚙️) → Script ID** — copy this value.
+
+### 4. Update `.clasp.json`
+
+Update the `scriptId` in `.clasp.json` with the value from step 3:
+
+```json
+{
+  "scriptId": "your-new-script-id-here",
+  "rootDir": ""
+}
 ```
 
-Find your Script ID via **Apps Script → Project settings**.
+Push to Bitbucket — the pipeline deploys the code to your new Apps Script project automatically.
 
-### 4. Auto-refresh on sheet open
+> If you're working with multiple sheets, each sheet has its own Apps Script project and its own `scriptId`. The code itself is sheet-agnostic — it always reads from the sheet it is attached to.
+
+### 5. Auto-refresh on sheet open
 
 Run **📅 Capacity → ⚙️ Install auto-refresh trigger** once. This installs a per-user installable trigger that shows the refresh dialog automatically when the sheet is opened.
 
