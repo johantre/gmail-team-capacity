@@ -255,14 +255,18 @@ function doRefresh(vanSidebar) {
       .setHorizontalAlignment("left");
 
     const teamLetter = teamNaam.replace(/^Team\s*/i, '').charAt(0).toUpperCase();
+    const cel2 = sheet.getRange(rij, 2);
+    cel2.setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
+      .setFontSize(13).setHorizontalAlignment("center").setVerticalAlignment("middle");
     if (teamId) {
       const jiraUrl = `https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/${teamId}/reports/velocity`;
-      sheet.getRange(rij, 2)
-        .setFormula(`=HYPERLINK("${jiraUrl}";"[${teamLetter}] Velocity chart")`)
-        .setFontSize(10).setFontWeight("bold").setHorizontalAlignment("center").setVerticalAlignment("middle")
-        .setBackground(teamStyle.bg).setFontColor(teamStyle.fg);
+      const rt = SpreadsheetApp.newRichTextValue()
+        .setText("📊")
+        .setLinkUrl(jiraUrl)
+        .build();
+      cel2.setRichTextValue(rt);
     } else {
-      sheet.getRange(rij, 2).setBackground(teamStyle.bg);
+      cel2.setValue("");
     }
     sheet.getRange(rij, 3).setBackground(teamStyle.bg);
 
