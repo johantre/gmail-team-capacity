@@ -123,8 +123,8 @@ function berekenAfwezigInWeek(dagCache, weekStart, weekEinde, sprintStart, sprin
 // ============================================================
 function refreshCapaciteit() {
   const html = HtmlService.createHtmlOutputFromFile('Loading')
-    .setTitle('Team Capacity');
-  SpreadsheetApp.getUi().showSidebar(html);
+    .setWidth(320).setHeight(320);
+  SpreadsheetApp.getUi().showModalDialog(html, ' ');
 }
 
 function doRefresh(vanSidebar) {
