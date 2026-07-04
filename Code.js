@@ -151,15 +151,15 @@ function doRefresh(vanSidebar) {
   // Current sprint = today within [start, einde), fallback to next upcoming
   const huidigeSprint = sprints.find(s => vandaag >= s.start && vandaag < s.einde)
     || sprints.slice().sort((a, b) => a.start - b.start).find(s => s.start > vandaag);
-  const volgendeSprint = huidigeSprint
-    ? sprints.find(s => s.nr === huidigeSprint.nr + 1)
-    : null;
 
-  // Build sprint groups: 3 weeks per sprint
+  // Build sprint groups: 4 sprints starting from current
   const sprintGroepen = [];
-  [huidigeSprint, volgendeSprint].filter(Boolean).forEach(sprint => {
-    const weken = buildSprintWeken(sprint);
-    sprintGroepen.push({ sprint, weken });
+  if (huidigeSprint) {
+    for (let i = 0; i < 4; i++) {
+      const sprint = sprints.find(s => s.nr === huidigeSprint.nr + i);
+      if (sprint) sprintGroepen.push({ sprint, weken: buildSprintWeken(sprint) });
+    }
+  }
   });
 
   // Flatten to ordered week columns and set startKolIdx per group
