@@ -66,8 +66,8 @@ function leesSprintConfig(teamsSheet) {
     const duurMs = sprints[1].start - sprints[0].start;
     const vandaag = new Date();
     let laatste = sprints[sprints.length - 1];
-    // Generate until we have at least 2 sprints beyond today
-    while (laatste.einde <= vandaag || sprints.filter(s => s.start > vandaag).length < 2) {
+    // Generate until we have at least 4 sprints beyond today
+    while (laatste.einde <= vandaag || sprints.filter(s => s.start > vandaag).length < 4) {
       const start = new Date(laatste.einde);
       const einde = new Date(start.getTime() + duurMs);
       const nr = laatste.nr + 1;
