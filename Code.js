@@ -307,15 +307,20 @@ function doRefresh(vanSidebar) {
       rij++;
     });
 
+    // Member row range for SUMPRODUCT formulas (team header + sprint header + week header = +3)
+    const eersteLedenRij = teamHeaderRij + 3;
+    const laatsLedenRij = eersteLedenRij + leden.length - 1;
+
     // MD / Sprint (%) row — merged per sprint
     const geldigeLeden = leden.filter(l => !kalenderFouten[l.email]).length;
     sheet.getRange(rij, 1).setValue("MD / Sprint (%)")
       .setFontFamily("Montserrat").setFontWeight("bold")
       .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS);
-    const sprintCalcs = [];
+    const sprintRanges = [];
     sprintGroepen.forEach(groep => {
       const kolStart = groep.startKolIdx + 2;
       const kolBreedte = groep.weken.length;
+      const kolEinde = kolStart + kolBreedte - 1;
       const maxMandagen = geldigeLeden * groep.weken.reduce((s, wk) => s + wk.werkdagen, 0);
       let sprintMandagen = 0;
       groep.weken.forEach(wk => {
@@ -334,30 +339,43 @@ function doRefresh(vanSidebar) {
         .setFontFamily("Montserrat").setFontWeight("bold")
         .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS)
         .setHorizontalAlignment("center");
-      sprintCalcs.push({ kolStart, kolBreedte, sprintMandagen, maxMandagen });
+      sprintRanges.push({ kolStart, kolBreedte, kolEinde });
     });
     rij++;
 
-    // Hidden rows with raw numbers for formula use
-    const rijSprintMD = rij;
-    sprintCalcs.forEach(d => sheet.getRange(rijSprintMD, d.kolStart).setValue(d.sprintMandagen));
-    sheet.hideRows(rijSprintMD, 1);
+    // Hidden "Current MD" row — SUMPRODUCT of x values from "x / y" member cells
+    const rijCurrentMD = rij;
+    sprintRanges.forEach(d => {
+      const bereik = `${colLetter(d.kolStart)}${eersteLedenRij}:${colLetter(d.kolEinde)}${laatsLedenRij}`;
+      const formula = `=SUMPRODUCT(IFERROR(VALUE(TRIM(LEFT(${bereik};FIND(" / ";${bereik})-1)));0))`;
+      const cel = sheet.getRange(rij, d.kolStart, 1, d.kolBreedte);
+      if (d.kolBreedte > 1) cel.merge();
+      cel.setFormula(formula);
+    });
+    sheet.hideRows(rijCurrentMD, 1);
     rij++;
 
-    const rijMaxMD = rij;
-    sprintCalcs.forEach(d => sheet.getRange(rijMaxMD, d.kolStart).setValue(d.maxMandagen));
-    sheet.hideRows(rijMaxMD, 1);
+    // Hidden "Full Cap. MD" row — SUMPRODUCT of y values from "x / y" member cells
+    const rijFullMD = rij;
+    sprintRanges.forEach(d => {
+      const bereik = `${colLetter(d.kolStart)}${eersteLedenRij}:${colLetter(d.kolEinde)}${laatsLedenRij}`;
+      const formula = `=SUMPRODUCT(IFERROR(VALUE(TRIM(MID(${bereik};FIND(" / ";${bereik})+3;100)));0))`;
+      const cel = sheet.getRange(rij, d.kolStart, 1, d.kolBreedte);
+      if (d.kolBreedte > 1) cel.merge();
+      cel.setFormula(formula);
+    });
+    sheet.hideRows(rijFullMD, 1);
     rij++;
 
-    // Projected SP row — formula referencing velocity cell + hidden MD rows
+    // Projected SP row — formula referencing velocity cell + hidden MD rows (semicolons for Belgian locale)
     const velocityRef = colLetter(aantalKolommen) + teamHeaderRij;
     sheet.getRange(rij, 1).setValue("→ Projected SP")
       .setFontFamily("Montserrat").setFontWeight("bold")
       .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS);
-    sprintCalcs.forEach(d => {
-      const spRef = colLetter(d.kolStart) + rijSprintMD;
-      const maxRef = colLetter(d.kolStart) + rijMaxMD;
-      const formula = `=IF(${velocityRef}="","",IFERROR(ROUND(${velocityRef}*${spRef}/${maxRef},0),""))`;
+    sprintRanges.forEach(d => {
+      const spRef = colLetter(d.kolStart) + rijCurrentMD;
+      const maxRef = colLetter(d.kolStart) + rijFullMD;
+      const formula = `=IF(${velocityRef}="";"";IFERROR(ROUND(${velocityRef}*${spRef}/${maxRef};0);""))`;
       const cel = sheet.getRange(rij, d.kolStart, 1, d.kolBreedte);
       if (d.kolBreedte > 1) cel.merge();
       cel.setFormula(formula)
