@@ -220,6 +220,7 @@ function doRefresh(vanSidebar) {
     const teamKleur = TEAM_KLEUREN[teamNaam] || "#5f6368";
 
     // Team title — name left | "Average Velocity:" label | editable number right
+    const teamHeaderRij = rij;
     const velocity = savedVelocities[teamNaam] || 0;
     const teamStyle = { font: "Montserrat", bg: teamKleur, fg: "#ffffff" };
     sheet.getRange(rij, 1).setValue(teamNaam)
@@ -311,6 +312,7 @@ function doRefresh(vanSidebar) {
     sheet.getRange(rij, 1).setValue("MD / Sprint (%)")
       .setFontFamily("Montserrat").setFontWeight("bold")
       .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS);
+    const sprintCalcs = [];
     sprintGroepen.forEach(groep => {
       const kolStart = groep.startKolIdx + 2;
       const kolBreedte = groep.weken.length;
@@ -326,13 +328,40 @@ function doRefresh(vanSidebar) {
       });
       const pct = maxMandagen > 0 ? Math.round((sprintMandagen / maxMandagen) * 100) : 0;
       const mdLabel = Number.isInteger(sprintMandagen) ? sprintMandagen : sprintMandagen.toFixed(1).replace('.', ',');
-      const projectedSP = velocity && maxMandagen > 0
-        ? Math.round((sprintMandagen / maxMandagen) * velocity)
-        : null;
-      const spLabel = projectedSP !== null ? `  →  ${projectedSP} projected SP` : '';
       const cel = sheet.getRange(rij, kolStart, 1, kolBreedte);
       if (kolBreedte > 1) cel.merge();
-      cel.setValue(`${mdLabel} MD (${pct}%)${spLabel}`)
+      cel.setValue(`${mdLabel} MD (${pct}%)`)
+        .setFontFamily("Montserrat").setFontWeight("bold")
+        .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS)
+        .setHorizontalAlignment("center");
+      sprintCalcs.push({ kolStart, kolBreedte, sprintMandagen, maxMandagen });
+    });
+    rij++;
+
+    // Hidden rows with raw numbers for formula use
+    const rijSprintMD = rij;
+    sprintCalcs.forEach(d => sheet.getRange(rijSprintMD, d.kolStart).setValue(d.sprintMandagen));
+    sheet.hideRows(rijSprintMD, 1);
+    rij++;
+
+    const rijMaxMD = rij;
+    sprintCalcs.forEach(d => sheet.getRange(rijMaxMD, d.kolStart).setValue(d.maxMandagen));
+    sheet.hideRows(rijMaxMD, 1);
+    rij++;
+
+    // Projected SP row — formula referencing velocity cell + hidden MD rows
+    const velocityRef = colLetter(aantalKolommen) + teamHeaderRij;
+    sheet.getRange(rij, 1).setValue("→ Projected SP")
+      .setFontFamily("Montserrat").setFontWeight("bold")
+      .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS);
+    sprintCalcs.forEach(d => {
+      const spRef = colLetter(d.kolStart) + rijSprintMD;
+      const maxRef = colLetter(d.kolStart) + rijMaxMD;
+      const formula = `=IF(${velocityRef}="","",IFERROR(ROUND(${velocityRef}*${spRef}/${maxRef},0),""))`;
+      const cel = sheet.getRange(rij, d.kolStart, 1, d.kolBreedte);
+      if (d.kolBreedte > 1) cel.merge();
+      cel.setFormula(formula)
+        .setNumberFormat('"→ "0" projected SP"')
         .setFontFamily("Montserrat").setFontWeight("bold")
         .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS)
         .setHorizontalAlignment("center");
@@ -443,6 +472,12 @@ function getMaandagVanWeek(datum) {
   d.setDate(d.getDate() + diff);
   d.setHours(0,0,0,0);
   return d;
+}
+
+function colLetter(n) {
+  let s = '';
+  while (n > 0) { n--; s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); }
+  return s;
 }
 
 function formatDatum(d) {
