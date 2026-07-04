@@ -140,17 +140,26 @@ function doRefresh(vanSidebar) {
   const data = teamsSheet.getDataRange().getValues();
   const teams = {};
   const teamIds = {};
-  // Find "Team id" column from header row
-  const headerRij = data[0] || [];
-  const teamIdKolIdx = headerRij.findIndex(h => h.toString().trim().toLowerCase() === 'team id');
+  // Find "id" column dynamically (it's in a separate E-F section, not col D)
+  let idKolIdx = -1, idTeamKolIdx = -1;
+  for (let r = 0; r < Math.min(3, data.length); r++) {
+    for (let c = 0; c < data[r].length; c++) {
+      if ((data[r][c] || '').toString().trim().toLowerCase() === 'id') {
+        idKolIdx = c; idTeamKolIdx = c - 1; break;
+      }
+    }
+    if (idKolIdx >= 0) break;
+  }
   data.forEach(rij => {
     const [team, naam, email] = rij.map(v => v.toString().trim());
-    if (!email || !email.includes("@")) return;
-    if (!teams[team]) teams[team] = [];
-    teams[team].push({ naam, email });
-    if (!teamIds[team] && teamIdKolIdx >= 0) {
-      const id = (rij[teamIdKolIdx] || '').toString().trim();
-      if (id) teamIds[team] = id;
+    if (email && email.includes("@")) {
+      if (!teams[team]) teams[team] = [];
+      teams[team].push({ naam, email });
+    }
+    if (idKolIdx >= 0) {
+      const idTeam = (rij[idTeamKolIdx] || '').toString().trim();
+      const id = rij[idKolIdx];
+      if (idTeam && typeof id === 'number' && id > 0) teamIds[idTeam] = id.toString();
     }
   });
 
@@ -215,7 +224,7 @@ function doRefresh(vanSidebar) {
 
   sheet.setColumnWidth(1, 200);
   for (let k = 2; k <= aantalKolommen; k++) sheet.setColumnWidth(k, 120);
-  sheet.setColumnWidth(aantalKolommen + 1, 36);
+  sheet.setColumnWidth(2, 36);
 
   // Main title
   sheet.getRange(1, 1, 1, aantalKolommen).merge();
@@ -234,16 +243,29 @@ function doRefresh(vanSidebar) {
     const leden = teams[teamNaam];
     const teamKleur = TEAM_KLEUREN[teamNaam] || "#5f6368";
 
-    // Team title — name left | "Average Velocity:" label | editable number right
+    // Team title: [name col1] [📊 col2] [Average Velocity: col3..N-1] [velocity col N]
     const teamHeaderRij = rij;
     const velocity = savedVelocities[teamNaam] || 0;
+    const teamId = teamIds[teamNaam] || '';
     const teamStyle = { font: "Montserrat", bg: teamKleur, fg: "#ffffff" };
+
     sheet.getRange(rij, 1).setValue(teamNaam)
       .setFontFamily(teamStyle.font).setFontSize(11).setFontWeight("bold")
       .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
       .setHorizontalAlignment("left");
-    if (aantalKolommen > 2) {
-      sheet.getRange(rij, 2, 1, aantalKolommen - 2).merge()
+
+    if (teamId) {
+      const jiraUrl = `https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/${teamId}/reports/velocity`;
+      sheet.getRange(rij, 2)
+        .setFormula(`=HYPERLINK("${jiraUrl}";"📊")`)
+        .setFontSize(16).setHorizontalAlignment("center").setVerticalAlignment("middle")
+        .setBackground(teamStyle.bg).setFontColor(teamStyle.fg);
+    } else {
+      sheet.getRange(rij, 2).setBackground(teamStyle.bg);
+    }
+
+    if (aantalKolommen > 3) {
+      sheet.getRange(rij, 3, 1, aantalKolommen - 3).merge()
         .setValue("Average Velocity:")
         .setFontFamily(teamStyle.font).setFontSize(10).setFontWeight("normal")
         .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
@@ -255,16 +277,6 @@ function doRefresh(vanSidebar) {
       .setFontFamily(teamStyle.font).setFontSize(10).setFontWeight("bold")
       .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
       .setHorizontalAlignment("right");
-    const teamId = teamIds[teamNaam] || '';
-    if (teamId) {
-      const jiraUrl = `https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/${teamId}/reports/velocity`;
-      sheet.getRange(rij, aantalKolommen + 1)
-        .setFormula(`=HYPERLINK("${jiraUrl}";"📊")`)
-        .setFontSize(16).setHorizontalAlignment("center").setVerticalAlignment("middle")
-        .setBackground(teamKleur).setFontColor("#ffffff");
-    } else {
-      sheet.getRange(rij, aantalKolommen + 1).setBackground(teamKleur);
-    }
     sheet.setRowHeight(rij, 28);
     rij++;
 
