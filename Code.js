@@ -135,11 +135,13 @@ function doRefresh(vanSidebar) {
 
   const data = teamsSheet.getDataRange().getValues();
   const teams = {};
+  const teamVelocity = {};
   data.forEach(rij => {
-    const [team, naam, email] = rij.map(v => v.toString().trim());
+    const [team, naam, email, velocity] = rij.map(v => v.toString().trim());
     if (!email || !email.includes("@")) return;
     if (!teams[team]) teams[team] = [];
     teams[team].push({ naam, email });
+    if (!teamVelocity[team] && velocity) teamVelocity[team] = parseFloat(velocity) || 0;
   });
 
   const teamNamen = Object.keys(teams);
@@ -207,12 +209,18 @@ function doRefresh(vanSidebar) {
     const leden = teams[teamNaam];
     const teamKleur = TEAM_KLEUREN[teamNaam] || "#5f6368";
 
-    // Team title
-    sheet.getRange(rij, 1, 1, aantalKolommen).merge();
+    // Team title — name left, average velocity right
+    const velocity = teamVelocity[teamNaam] || 0;
     sheet.getRange(rij, 1).setValue(teamNaam)
       .setFontFamily("Montserrat").setFontSize(11).setFontWeight("bold")
       .setBackground(teamKleur).setFontColor("#ffffff")
       .setHorizontalAlignment("left");
+    const velocityCel = sheet.getRange(rij, 2, 1, aantalKolommen - 1);
+    velocityCel.merge();
+    velocityCel.setValue(velocity ? `Average Velocity: ${velocity} SP` : '')
+      .setFontFamily("Montserrat").setFontSize(10).setFontWeight("normal")
+      .setBackground(teamKleur).setFontColor("#ffffff")
+      .setHorizontalAlignment("right");
     sheet.setRowHeight(rij, 28);
     rij++;
 
@@ -300,9 +308,13 @@ function doRefresh(vanSidebar) {
       });
       const pct = maxMandagen > 0 ? Math.round((sprintMandagen / maxMandagen) * 100) : 0;
       const mdLabel = Number.isInteger(sprintMandagen) ? sprintMandagen : sprintMandagen.toFixed(1).replace('.', ',');
+      const projectedSP = velocity && maxMandagen > 0
+        ? Math.round((sprintMandagen / maxMandagen) * velocity)
+        : null;
+      const spLabel = projectedSP !== null ? `  →  ${projectedSP} projected SP` : '';
       const cel = sheet.getRange(rij, kolStart, 1, kolBreedte);
       if (kolBreedte > 1) cel.merge();
-      cel.setValue(`${mdLabel} MD (${pct}%)`)
+      cel.setValue(`${mdLabel} MD (${pct}%)${spLabel}`)
         .setFontFamily("Montserrat").setFontWeight("bold")
         .setBackground(TURQUOISE_LICHT).setFontColor(GRIJS)
         .setHorizontalAlignment("center");
