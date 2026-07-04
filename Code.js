@@ -211,9 +211,9 @@ function doRefresh(vanSidebar) {
     existingVals.forEach(row => {
       const naam = (row[0] || '').toString().trim();
       if (teamNamen.includes(naam)) {
-        // Velocity is stored as a number in the last cell of the team header row
-        const vel = row[aantalKolommen - 1];
-        if (typeof vel === 'number' && vel > 0) savedVelocities[naam] = vel;
+        for (let i = row.length - 1; i > 0; i--) {
+          if (typeof row[i] === 'number' && row[i] > 0) { savedVelocities[naam] = row[i]; break; }
+        }
       }
     });
   }
@@ -427,6 +427,13 @@ function doRefresh(vanSidebar) {
         .setHorizontalAlignment("center");
     });
     rij++;
+
+    // Vertical sprint dividers — right border on last col of each sprint except the last
+    const rijTeamEinde = rij - 1;
+    sprintRanges.slice(0, -1).forEach(d => {
+      sheet.getRange(teamHeaderRij, d.kolEinde, rijTeamEinde - teamHeaderRij + 1, 1)
+        .setBorder(null, null, null, true, null, null, "#888888", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    });
 
     // Empty row
     sheet.setRowHeight(rij, 16);
