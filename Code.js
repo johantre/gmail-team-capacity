@@ -260,11 +260,7 @@ function doRefresh(vanSidebar) {
       .setFontSize(13).setHorizontalAlignment("center").setVerticalAlignment("middle");
     if (teamId) {
       const jiraUrl = `https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/${teamId}/reports/velocity`;
-      const rt = SpreadsheetApp.newRichTextValue()
-        .setText("📊")
-        .setLinkUrl(jiraUrl)
-        .build();
-      cel2.setRichTextValue(rt);
+      cel2.setFormula(`=HYPERLINK("${jiraUrl}";"📊")`);
     } else {
       cel2.setValue("");
     }
