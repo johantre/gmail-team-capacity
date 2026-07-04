@@ -205,6 +205,7 @@ function doRefresh(vanSidebar) {
     });
   }
   if (!sheet) sheet = ss.insertSheet(SHEET_CAPACITEIT);
+  sheet.getImages().forEach(img => img.remove());
   sheet.clearContents();
   sheet.clearFormats();
 
@@ -215,11 +216,14 @@ function doRefresh(vanSidebar) {
   // Main title
   sheet.getRange(1, 1, 1, aantalKolommen + 1).merge();
   sheet.getRange(1, 1)
-    .setValue("📅 Team Capacity — updated on " + formatDatum(vandaag))
+    .setValue("      Team Capacity — updated on " + formatDatum(vandaag))
     .setFontFamily("Montserrat").setFontSize(13).setFontWeight("bold")
     .setBackground(GRIJS).setFontColor("#ffffff")
     .setHorizontalAlignment("center");
   sheet.setRowHeight(1, 36);
+
+  const pendingImages = [];
+  pendingImages.push({ type: 'calendar', row: 1, col: 1, offsetX: 6, offsetY: 6 });
 
   let rij = 2;
 
@@ -249,14 +253,10 @@ function doRefresh(vanSidebar) {
       .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
       .setHorizontalAlignment("right");
     const teamId = teamIds[teamNaam] || '';
+    sheet.getRange(rij, aantalKolommen + 1).setBackground(teamKleur);
     if (teamId) {
-      const url = `https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/${teamId}/reports/velocity`;
-      sheet.getRange(rij, aantalKolommen + 1)
-        .setFormula(`=HYPERLINK("${url}";"📊")`)
-        .setFontSize(14).setHorizontalAlignment("center").setVerticalAlignment("middle")
-        .setBackground(teamKleur).setFontColor("#ffffff");
-    } else {
-      sheet.getRange(rij, aantalKolommen + 1).setBackground(teamKleur);
+      const jiraUrl = `https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/${teamId}/reports/velocity`;
+      pendingImages.push({ type: 'chart', row: rij, col: aantalKolommen + 1, url: jiraUrl });
     }
     sheet.setRowHeight(rij, 28);
     rij++;
@@ -408,6 +408,25 @@ function doRefresh(vanSidebar) {
     sheet.setRowHeight(rij, 16);
     rij++;
   });
+
+  // Insert over-grid icons (calendar in title, chart links per team)
+  if (pendingImages.length > 0) {
+    try {
+      const calBlob = UrlFetchApp.fetch(
+        'https://api.iconify.design/tabler:calendar-event.svg?color=%23ffffff&width=22&height=22'
+      ).getBlob().setName('calendar.svg');
+      const chartBlob = UrlFetchApp.fetch(
+        'https://api.iconify.design/tabler:chart-bar.svg?color=%23ffffff&width=20&height=20'
+      ).getBlob().setName('chart.svg');
+      pendingImages.forEach(p => {
+        const blob = p.type === 'calendar' ? calBlob : chartBlob;
+        const img = sheet.insertImage(blob, p.col, p.row, p.offsetX || 4, p.offsetY || 4);
+        if (p.url) img.setLinkUrl(p.url);
+      });
+    } catch (e) {
+      Logger.log('Icon fetch failed: ' + e.message);
+    }
+  }
 
   // Errors at the bottom
   const foutenLijst = Object.entries(kalenderFouten);
