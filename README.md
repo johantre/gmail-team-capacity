@@ -188,6 +188,12 @@ Open your Google Sheet and use the **📅 Capacity** menu:
 - **🔄 Refresh capacity** — manually trigger a refresh
 - **⚙️ Install auto-refresh trigger** — install the on-open trigger (once per user)
 
+### First-time authorization (once per colleague)
+
+Every team member needs their own Google authorization for this script, since it reads their colleagues' calendars. The **first** time someone clicks **🔄 Refresh capacity**, Google shows a standard authorization prompt (choose account → *Advanced* → *Go to [project] (unsafe)*, since the script isn't published/verified — this is expected for an internal script). Approve it once; every refresh after that works normally.
+
+If a colleague instead sees a generic "permission needed" error inside the loading dialog, it means they skipped that first authorization (e.g. the sheet was shared with the auto-refresh trigger already installed, so the dialog opened before they ever got the prompt). Have them run **🔄 Refresh capacity** manually once to trigger the proper authorization screen.
+
 ## CI/CD flow
 
 ```
