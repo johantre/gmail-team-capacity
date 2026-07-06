@@ -1,7 +1,7 @@
 // ============================================================
 // TEAM CAPACITY - Google Apps Script v3
 // ============================================================
-// Configuration via the "Teams" tab in your Sheet:
+// Configuration via the "Teams" tab in your Sheet: 
 //
 //   | Team   | Name      | Email                |   ...   | Sprint naming signature    |
 //   |--------|-----------|----------------------|---------|---------------------------|
@@ -126,6 +126,12 @@ function berekenAfwezigInWeek(dagCache, weekStart, weekEinde, sprintStart, sprin
 // refreshCapaciteit() shows the loading dialog; the dialog calls doRefresh()
 // ============================================================
 function refreshCapaciteit() {
+  // Touch the Calendar service here, directly from the menu click, so that on
+  // first use Apps Script can show the real Google authorization prompt.
+  // google.script.run calls made from inside the dialog below cannot trigger
+  // that prompt — they just fail with a generic "permission needed" error.
+  Calendar.CalendarList.list({ maxResults: 1 });
+
   const html = HtmlService.createHtmlOutputFromFile('Loading')
     .setWidth(480).setHeight(480);
   SpreadsheetApp.getUi().showModalDialog(html, ' ');
