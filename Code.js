@@ -249,7 +249,7 @@ function doRefresh(vanSidebar) {
     const leden = teams[teamNaam];
     const teamKleur = TEAM_KLEUREN[teamNaam] || "#5f6368";
 
-    // Team title: [name col1] [📊 col2] [Average Velocity: col3..N-1] [velocity col N]
+    // Team title: [name col1] [📊 col2] [Max Capacity Velocity: col3..N-1] [velocity col N]
     const teamHeaderRij = rij;
     const velocity = savedVelocities[teamNaam] || 0;
     const teamId = teamIds[teamNaam] || '';
@@ -274,7 +274,7 @@ function doRefresh(vanSidebar) {
 
     if (aantalKolommen > 4) {
       sheet.getRange(rij, 4, 1, aantalKolommen - 4).merge()
-        .setValue("Average Velocity:")
+        .setValue("Max Capacity Velocity:")
         .setFontFamily(teamStyle.font).setFontSize(10).setFontWeight("normal")
         .setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
         .setHorizontalAlignment("right");
@@ -472,6 +472,14 @@ function doRefresh(vanSidebar) {
 // ============================================================
 // ONE API call per person — returns data + any error
 // ============================================================
+// TODO: all-day OOO events are overcounted by 1 day here. event.start.date /
+// event.end.date are bare "YYYY-MM-DD" strings, which `new Date(...)` always
+// parses as UTC midnight — in Brussels (always ahead of UTC) that lands just
+// after local midnight, so the day-walking loop below picks up one extra
+// calendar day per event. Fixed in gmail-team-days-worked's copy of this
+// function by parsing all-day dates as local dates directly instead of via
+// `new Date(dateString)`; not yet applied here since this only feeds
+// percentages here (not exact day counts used to check invoices).
 function haalAfwezighedenOp(email, periodeStart, periodeEinde) {
   const dagData = {};
   try {
