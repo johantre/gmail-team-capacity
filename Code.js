@@ -5,8 +5,8 @@
 //
 //   | Team   | Name      | Email                |   ...   | Sprint naming signature    |
 //   |--------|-----------|----------------------|---------|---------------------------|
-//   | Team A | Pier      | pier@robaws.be       |         | Sprint 14 (16 jun – 30 jun)|
-//   | Team A | Pol       | pol@robaws.be        |         | Sprint 15 (30 jun – 14 jul)|
+//   | Team A | Pier      | pier@acme.be       |         | Sprint 14 (16 jun – 30 jun)|
+//   | Team A | Pol       | pol@acme.be        |         | Sprint 15 (30 jun – 14 jul)|
 //
 // Sprint naming signature is in column H (index 7).
 // Format: Sprint {nr} ({day} {month} – {day} {month})
@@ -22,7 +22,7 @@ const SVG_CHART    = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height=
 const SHEET_TEAMS = "Teams";
 const SHEET_CAPACITEIT = "Capacity";
 
-// Robaws brand colors
+// Acme brand colors
 const BLAUW      = "#3E7CBF";
 const TURQUOISE  = "#27B4AF";
 const GRIJS      = "#3C3C3B";
@@ -265,7 +265,7 @@ function doRefresh(vanSidebar) {
     cel2.setBackground(teamStyle.bg).setFontColor(teamStyle.fg)
       .setFontSize(13).setHorizontalAlignment("center").setVerticalAlignment("middle");
     if (teamId) {
-      const jiraUrl = `https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/${teamId}/reports/velocity`;
+      const jiraUrl = `https://acme.atlassian.net/jira/software/c/projects/ACME/boards/${teamId}/reports/velocity`;
       cel2.setFormula(`=HYPERLINK("${jiraUrl}";"📊")`);
     } else {
       cel2.setValue("");

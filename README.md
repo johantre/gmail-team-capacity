@@ -19,7 +19,7 @@ No external tools, no servers — just Google Apps Script connected to the Googl
 ```
 gmail-team-capacity/
 ├── Code.js                    # Google Apps Script — main logic
-├── Loading.html               # Pulsing Robaws logo dialog shown during refresh
+├── Loading.html               # Pulsing Acme logo dialog shown during refresh
 ├── appsscript.json            # Apps Script manifest (scopes, timezone)
 ├── .clasp.json                # Link to the Apps Script project
 ├── res/
@@ -36,17 +36,17 @@ The **Teams** sheet drives everything. It has two distinct sections:
 
 | Team    | Name    | Email                  |
 |---------|---------|------------------------|
-| Team A  | Pier    | pier@robaws.be         |
-| Team A  | Pol     | pol@robaws.be          |
-| Team B  | Marie   | marie@robaws.be        |
+| Team A  | Pier    | pier@acme.be         |
+| Team A  | Pol     | pol@acme.be          |
+| Team B  | Marie   | marie@acme.be        |
 
 - **Team**: must match exactly with the team names used in the Capacity sheet
 - **Name**: display name shown in the Capacity sheet
 - **Email**: used to query Google Calendar — must be the member's Google Workspace email
 
-> **Email formula**: emails follow the pattern `firstname@robaws.be`. If your organisation uses a different pattern (e.g. `firstname.lastname@robaws.be`), you can use a Sheets formula in the Email column:
+> **Email formula**: emails follow the pattern `firstname@acme.be`. If your organisation uses a different pattern (e.g. `firstname.lastname@acme.be`), you can use a Sheets formula in the Email column:
 > ```
-> =LOWER(A2)&"@robaws.be"
+> =LOWER(A2)&"@acme.be"
 > ```
 > The script detects any cell containing `@` as a valid email address.
 
@@ -64,7 +64,7 @@ Add or remove rows freely — the script picks them up automatically on the next
 
 When a team has an ID, a clickable 📊 icon appears next to the team name in the Capacity sheet, linking directly to:
 ```
-https://eforge.atlassian.net/jira/software/c/projects/ROBAWS/boards/{id}/reports/velocity
+https://acme.atlassian.net/jira/software/c/projects/ACME/boards/{id}/reports/velocity
 ```
 Teams without an ID simply show no icon.
 
