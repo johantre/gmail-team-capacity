@@ -9,6 +9,7 @@ No external tools, no servers — just Google Apps Script connected to the Googl
 - Reads **Out of Office** events (`eventType: outOfOffice`) from each team member's Google Calendar
 - Supports full-day and partial absences (half day, quarter day, ...)
 - Shows available days per team member per week (e.g. `3.5 / 5 days`)
+- **🦸 Hero checkbox** per sprint per member — for the rotating incident-duty role. Checking it instantly zeroes that member's capacity for that sprint's weeks (`0 / 4`, `0 / 5`, `0 / 1`) and recalculates Projected SP, no refresh needed
 - Displays total availability (MD) and percentage per sprint
 - Calculates **Projected SP** per sprint based on an editable Average Velocity per team
 - Color coding: 🟢 fully available · 🟡 partially available · 🔴 mostly absent
@@ -64,7 +65,7 @@ Add or remove rows freely — the script picks them up automatically on the next
 
 When a team has an ID, a clickable 📊 icon appears next to the team name in the Capacity sheet, linking directly to:
 ```
-https://acme.atlassian.net/jira/software/c/projects/ACME/boards/{id}/reports/velocity
+https://eforge.atlassian.net/jira/software/c/projects/ACME/boards/{id}/reports/velocity
 ```
 Teams without an ID simply show no icon.
 
@@ -94,6 +95,20 @@ Projected SP = Velocity × (Current MD / Full capacity MD)
 ```
 
 This value updates live as you change the velocity — no refresh needed. The velocity is preserved across refreshes.
+
+## Hero checkbox
+
+Each sprint block has a **🦸 Hero** checkbox column, one row per team member, right before that sprint's week columns. Check it when that person is the rotating incident-duty ("Hero") role for that sprint — this:
+
+- Sets their `x / y` cells for that sprint's weeks to `0 / y` (they contribute 0 capacity that sprint)
+- Recalculates **Current MD** and **→ Projected SP** for that sprint immediately, since both are formulas reading the member cells
+- Is per (member, sprint) — a Hero-checked sprint doesn't affect that person's other sprints
+
+Checked state is preserved across refreshes, matched by member name + sprint number (not row/column position, which shifts as sprints roll forward).
+
+The member row's background color (🟢/🟡/🔴) is conditional formatting driven by the cell's own "x / y" text, so it also updates live when Hero is toggled — no refresh needed.
+
+**Known limitation**: the "MD / Sprint (%)" summary line is still set once at refresh time, not live — it's a merged label, not a per-cell value, so it can't be driven by the same per-cell conditional formatting/formula approach without a bigger rework. Checking Hero after a refresh updates the member cells, colors and → Projected SP instantly, but that one summary line only catches up on the next **🔄 Refresh capacity**.
 
 ## Requirements
 
